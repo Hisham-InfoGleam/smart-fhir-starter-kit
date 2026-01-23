@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>InfoGleam Clinical View</title>
+  <script src="./config.js"></script>
+  <script src="./config.local.js" onerror="void 0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,0.06);
+      --panel2: rgba(255,255,255,0.10);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --accent: #79d0ff;
+      --bad: #ff6b6b;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 800px at 20% 10%, #15224a 0%, var(--bg) 55%, #070a14 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    header {
+      padding: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.12);
+      backdrop-filter: blur(10px);
+    }
+
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
+    header .sub { margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+    main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    }
+
+    @media (min-width: 900px) {
+      .card.span-6 { grid-column: span 6; }
+      .card.span-4 { grid-column: span 4; }
+      .card.span-8 { grid-column: span 8; }
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .title h2 { margin: 0; font-size: 14px; color: rgba(255,255,255,0.85); letter-spacing: 0.6px; text-transform: uppercase; }
+
+    .pill {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(121,208,255,0.12);
+      border: 1px solid rgba(121,208,255,0.35);
+      color: rgba(200,240,255,0.95);
+    }
+
+    .row { display: flex; flex-wrap: wrap; gap: 10px 18px; color: var(--muted); font-size: 13px; }
+    .row strong { color: rgba(255,255,255,0.92); font-weight: 600; }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: var(--panel2);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .error { border-color: rgba(255,107,107,0.5); background: rgba(255,107,107,0.08); color: rgba(255,240,240,0.9); }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>InfoGleam Clinical View</h1>
+    <div class="sub" id="subtitle">Connecting to SMART context…</div>
+  </header>
+
+  <main>
+    <div id="status" class="status">Loading FHIR context…</div>
+
+    <div id="standalone" class="card" style="display:none; margin-top: 16px;">
+      <div class="title">
+        <h2>Standalone Mode (No SMART)</h2>
+        <span class="pill">Fallback</span>
+      </div>
+      <div class="row" style="margin-bottom: 12px;">
+        <div style="flex: 1; min-width: 260px;">
+          <strong>FHIR Server URL</strong><br />
+          <input id="serverUrl" style="width: 100%; margin-top: 6px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text);" value="https://hapi.fhir.org/baseR4" />
+          <div class="sub" style="margin-top: 6px; color: var(--muted);">
+            Quick picks:
+            <a href="#" data-server="https://hapi.fhir.org/baseR4">HAPI R4</a>
+            · <a href="#" data-server="https://r4.smarthealthit.org">SMART Health IT R4</a>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 260px;">
+          <strong>Patient ID (optional)</strong><br />
+          <input id="patientId" style="width: 100%; margin-top: 6px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text);" placeholder="e.g. 123" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom: 12px;">
+        <button id="connectBtn" style="padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(121,208,255,0.45); background: rgba(121,208,255,0.14); color: rgba(255,255,255,0.92); cursor: pointer;">
+          Connect
+        </button>
+        <span class="sub" style="color: var(--muted);">
+          Tip: This mode is useful when the SMART App Launcher is down (e.g., 502).
+        </span>
+      </div>
+
+      <div id="patientPicker" class="mono" style="display:none;"></div>
+    </div>
+
+    <div id="dashboard" class="grid" style="display:none; margin-top: 16px;">
+      <section class="card span-4">
+        <div class="title">
+          <h2>Patient</h2>
+          <span class="pill" id="patient-pill">—</span>
+        </div>
+        <div id="patient" class="row"></div>
+      </section>
+
+      <section class="card span-8">
+        <div class="title">
+          <h2>Encounters (recent)</h2>
+          <span class="pill" id="encounters-pill">—</span>
+        </div>
+        <div id="encounters" class="mono">Loading…</div>
+      </section>
+
+      <section class="card span-6">
+        <div class="title">
+          <h2>Active Medications</h2>
+          <span class="pill" id="meds-pill">—</span>
+        </div>
+        <div id="meds" class="mono">Loading…</div>
+      </section>
+
+      <section class="card span-6">
+        <div class="title">
+          <h2>Observations (recent)</h2>
+          <span class="pill" id="obs-pill">—</span>
+        </div>
+        <div id="observations" class="mono">Loading…</div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const cfg = window.INFOGLEAM_CONFIG || {};
+
+    function safeText(value, fallback) {
+      if (value === undefined || value === null || value === "") return fallback;
+      return String(value);
+    }
+
+    function formatHumanName(name) {
+      if (!name) return "Unknown";
+      const given = Array.isArray(name.given) ? name.given.join(" ") : (name.given || "");
+      const family = name.family || "";
+      const full = (given + " " + family).trim();
+      return full || "Unknown";
+    }
+
+    function pickCodingDisplay(codeableConcept) {
+      if (!codeableConcept) return null;
+      if (codeableConcept.text) return codeableConcept.text;
+      const coding = Array.isArray(codeableConcept.coding) ? codeableConcept.coding : [];
+      return coding[0]?.display || coding[0]?.code || null;
+    }
+
+    function setStatus(text, isError) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = isError ? "status error" : "status";
+    }
+
+    function setPill(id, text) {
+      document.getElementById(id).textContent = text;
+    }
+
+    function showDashboard() {
+      document.getElementById("dashboard").style.display = "grid";
+    }
+
+    async function loadDashboard(client, serverUrl, patientId) {
+      document.getElementById("subtitle").textContent = `Connected to ${serverUrl} • Patient ${patientId}`;
+      showDashboard();
+      setStatus("Fetching clinical data…", false);
+
+      // 1) Patient
+      const patient = await client.request(`Patient/${encodeURIComponent(patientId)}`);
+      const name = formatHumanName(patient.name?.[0]);
+      const gender = safeText(patient.gender, "unknown");
+      const birthDate = safeText(patient.birthDate, "unknown");
+
+      setPill("patient-pill", name);
+      document.getElementById("patient").innerHTML = `
+        <div><strong>Name:</strong> ${name}</div>
+        <div><strong>DOB:</strong> ${birthDate}</div>
+        <div><strong>Gender:</strong> ${gender}</div>
+        <div><strong>ID:</strong> ${safeText(patient.id, "—")}</div>
+      `;
+
+      // 2) Encounters (last 5)
+      const encBundle = await client.request(`Encounter?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=5`);
+        const encEntries = encBundle.entry || [];
+        setPill("encounters-pill", `${encEntries.length}`);
+
+        if (!encEntries.length) {
+          document.getElementById("encounters").textContent = "No encounters found.";
+        } else {
+          const lines = encEntries.map(e => {
+            const r = e.resource;
+            const start = r.period?.start || "N/A";
+            const end = r.period?.end || "";
+            const type = pickCodingDisplay(r.type?.[0]) || r.class?.display || r.class?.code || "N/A";
+            return `• ${start}${end ? " → " + end : ""} | ${type}`;
+          });
+          document.getElementById("encounters").textContent = lines.join("\n");
+        }
+
+      // 3) MedicationRequest (active)
+      const medBundle = await client.request(`MedicationRequest?patient=${encodeURIComponent(patientId)}&status=active&_count=20`);
+        const medEntries = medBundle.entry || [];
+        setPill("meds-pill", `${medEntries.length}`);
+
+        if (!medEntries.length) {
+          document.getElementById("meds").textContent = "No active MedicationRequest resources found.";
+        } else {
+          const lines = medEntries.map(e => {
+            const r = e.resource;
+            const medName = pickCodingDisplay(r.medicationCodeableConcept) || "Unknown medication";
+            const authored = r.authoredOn || "N/A";
+            return `• ${medName} | authoredOn: ${authored}`;
+          });
+          document.getElementById("meds").textContent = lines.join("\n");
+        }
+
+      // 4) Observation (last 10)
+      const obsBundle = await client.request(`Observation?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=10`);
+        const obsEntries = obsBundle.entry || [];
+        setPill("obs-pill", `${obsEntries.length}`);
+
+        if (!obsEntries.length) {
+          document.getElementById("observations").textContent = "No observations found.";
+        } else {
+          const lines = obsEntries.map(e => {
+            const r = e.resource;
+            const code = pickCodingDisplay(r.code) || "Observation";
+            const when = r.effectiveDateTime || r.issued || "N/A";
+            const value = (r.valueQuantity && (r.valueQuantity.value !== undefined))
+              ? `${r.valueQuantity.value} ${r.valueQuantity.unit || ""}`.trim()
+              : (r.valueString || r.valueCodeableConcept?.text || "(no value)");
+            return `• ${when} | ${code} | ${value}`;
+          });
+          document.getElementById("observations").textContent = lines.join("\n");
+        }
+
+      setStatus("Loaded. (Tip: open DevTools Console for request details)", false);
+    }
+
+    function showStandaloneMode(message) {
+      document.getElementById("standalone").style.display = "block";
+      setStatus(message, true);
+      document.getElementById("subtitle").textContent = "Not connected";
+    }
+
+    function formatErr(err) {
+      if (!err) return "(unknown error)";
+      if (typeof err === "string") return err;
+      if (err.message) return err.message;
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return String(err);
+      }
+    }
+
+    async function connectStandalone() {
+      const serverUrl = document.getElementById("serverUrl").value.trim();
+      const patientIdInput = document.getElementById("patientId").value.trim();
+
+      if (!serverUrl) {
+        showStandaloneMode("Please provide a FHIR Server URL.");
+        return;
+      }
+
+      const client = FHIR.client({ serverUrl });
+
+      // If patient id is provided, load immediately. Otherwise show a picker.
+      if (patientIdInput) {
+        await loadDashboard(client, serverUrl, patientIdInput);
+        return;
+      }
+
+      setStatus("Connected. Loading sample patients…", false);
+      const bundle = await client.request("Patient?_count=25");
+      const entries = bundle.entry || [];
+
+      const picker = document.getElementById("patientPicker");
+      picker.style.display = "block";
+
+      if (!entries.length) {
+        picker.textContent = "No patients returned from the server. Try entering a Patient ID manually.";
+        return;
+      }
+
+      const lines = entries.map((e, idx) => {
+        const p = e.resource;
+        const id = p.id || "";
+        const label = `${formatHumanName(p.name?.[0])} (id: ${id})`;
+        return `<div style=\"margin: 6px 0;\"><a href=\"#\" data-id=\"${id}\" style=\"color: var(--accent);\">${idx + 1}. ${label}</a></div>`;
+      }).join("");
+
+      picker.innerHTML = `Select a patient:<br/>${lines}`;
+      picker.querySelectorAll("a[data-id]").forEach(a => {
+        a.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          const id = ev.currentTarget.getAttribute("data-id");
+          document.getElementById("patientId").value = id;
+          await loadDashboard(client, serverUrl, id);
+        });
+      });
+    }
+
+    async function main() {
+      // Apply configured standalone defaults (safe even if config.local.js is missing)
+      const serverUrlInput = document.getElementById("serverUrl");
+      if (serverUrlInput && cfg.standaloneServerUrl) {
+        serverUrlInput.value = cfg.standaloneServerUrl;
+      }
+
+      // Try SMART first
+      try {
+        const client = await FHIR.oauth2.ready();
+        const serverUrl = client.state?.serverUrl || "(unknown)";
+        const patientId = client.patient?.id;
+        if (!patientId) {
+          showStandaloneMode("SMART context loaded but no patient is selected. Try launching with a patient, or use Standalone Mode.");
+          return;
+        }
+        await loadDashboard(client, serverUrl, patientId);
+        return;
+      } catch (err) {
+        console.error(err);
+      }
+
+      // Fallback: standalone
+      showStandaloneMode("SMART launch failed (or SMART Launcher may be down). Use Standalone Mode below, or retry from /launch.html.");
+    }
+
+    document.getElementById("connectBtn").addEventListener("click", () => {
+      connectStandalone().catch(err => {
+        console.error(err);
+        showStandaloneMode(`Failed to connect in standalone mode: ${formatErr(err)}. Try a different server (e.g., HAPI R4) or check if the endpoint is returning 502.`);
+      });
+    });
+
+    document.querySelectorAll("a[data-server]").forEach(a => {
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const url = ev.currentTarget.getAttribute("data-server");
+        document.getElementById("serverUrl").value = url;
+      });
+    });
+
+    main();
+  </script>
+</body>
+</html>
