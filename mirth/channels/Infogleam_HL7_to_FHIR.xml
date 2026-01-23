@@ -1,0 +1,143 @@
+<!--
+  Sanitized Mirth channel export (starter template).
+  If your Mirth version rejects this import, create the channel manually and paste:
+    mirth/channel-logic.js
+  into a Destination Transformer JavaScript step.
+-->
+<channel version="3.12.0">
+  <id>Infogleam-POC-002</id>
+  <nextMetaDataId>2</nextMetaDataId>
+  <name>Infogleam_HL7_to_FHIR</name>
+  <description>PoC: Ingest HL7 v2, validate, transform to JSON, POST to receiver.</description>
+  <revision>1</revision>
+
+  <sourceConnector version="3.12.0">
+    <metaDataId>0</metaDataId>
+    <name>Source</name>
+    <properties class="com.mirth.connect.connectors.tcp.TcpReceiverProperties" version="3.12.0">
+      <listenerConnectorProperties version="3.12.0">
+        <host>0.0.0.0</host>
+        <port>6661</port>
+      </listenerConnectorProperties>
+      <transmissionModeProperties class="com.mirth.connect.plugins.mllpmode.MLLPModeProperties">
+        <startOfMessageBytes>0B</startOfMessageBytes>
+        <endOfMessageBytes>1C0D</endOfMessageBytes>
+      </transmissionModeProperties>
+      <responseValue>MSH|^~\&amp;|InfoGleam|System|||20260118||ACK|1|P|2.3&#13;MSA|AA|1</responseValue>
+      <sendResponse>true</sendResponse>
+    </properties>
+    <transformer version="3.12.0">
+      <elements/>
+      <inboundDataType>HL7V2</inboundDataType>
+      <outboundDataType>HL7V2</outboundDataType>
+      <inboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="3.12.0"/>
+      <outboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="3.12.0"/>
+    </transformer>
+    <filter version="3.12.0"><elements/></filter>
+    <transportName>TCP Listener</transportName>
+    <mode>SOURCE</mode>
+    <enabled>true</enabled>
+    <waitForPrevious>true</waitForPrevious>
+  </sourceConnector>
+
+  <destinationConnectors>
+    <connector version="3.12.0">
+      <metaDataId>1</metaDataId>
+      <name>POST to Mock Receiver</name>
+      <properties class="com.mirth.connect.connectors.http.HttpDispatcherProperties" version="3.12.0">
+        <host>http://localhost:3000/fhir</host>
+        <method>post</method>
+        <headers class="linked-hash-map">
+          <entry>
+            <string>Content-Type</string>
+            <list><string>application/json</string></list>
+          </entry>
+        </headers>
+        <responseXmlBody>false</responseXmlBody>
+        <useHeadersVariable>false</useHeadersVariable>
+        <contentType>application/json</contentType>
+        <dataTypeBinary>false</dataTypeBinary>
+        <socketTimeout>30000</socketTimeout>
+      </properties>
+
+      <transformer version="3.12.0">
+        <elements>
+          <com.mirth.connect.plugins.javascriptstep.JavaScriptStep version="3.12.0">
+            <script><![CDATA[
+// Minimal inline transformer.
+// For the full reviewable logic, see: mirth/channel-logic.js
+
+function toStringSafe(v) {
+  return (v === null || v === undefined) ? "" : String(v);
+}
+
+function convertHL7Date(hl7Date) {
+  var d = toStringSafe(hl7Date);
+  if (d.length >= 8) return d.substring(0,4) + "-" + d.substring(4,6) + "-" + d.substring(6,8);
+  return null;
+}
+
+function mapGender(hl7Sex) {
+  var s = toStringSafe(hl7Sex).toUpperCase();
+  if (s === "M") return "male";
+  if (s === "F") return "female";
+  return "unknown";
+}
+
+var msgType = toStringSafe(msg['MSH']['MSH.9']['MSH.9.1']);
+var controlId = toStringSafe(msg['MSH']['MSH.10']['MSH.10.1']);
+var patientId = toStringSafe(msg['PID']['PID.3']['PID.3.1']);
+
+if (!controlId) throw "VALIDATION ERROR: Missing MSH-10";
+if (!patientId) throw "VALIDATION ERROR: Missing PID-3";
+
+var out = {};
+
+if (msgType === "ADT") {
+  out = {
+    resourceType: "Patient",
+    id: patientId,
+    name: [{
+      family: toStringSafe(msg['PID']['PID.5']['PID.5.1']),
+      given: [toStringSafe(msg['PID']['PID.5']['PID.5.2'])]
+    }],
+    gender: mapGender(toStringSafe(msg['PID']['PID.8']['PID.8.1'])),
+    birthDate: convertHL7Date(toStringSafe(msg['PID']['PID.7']['PID.7.1']))
+  };
+} else if (msgType === "ORU") {
+  out = {
+    resourceType: "Observation",
+    status: "final",
+    subject: { reference: "Patient/" + patientId },
+    code: { text: toStringSafe(msg['OBR']['OBR.4']['OBR.4.2']) },
+    valueString: toStringSafe(msg['OBX']['OBX.5']['OBX.5.1'])
+  };
+} else {
+  out = { resourceType: "Basic", id: controlId, code: { text: "Unhandled type: " + msgType } };
+}
+
+msg = JSON.stringify(out);
+            ]]></script>
+          </com.mirth.connect.plugins.javascriptstep.JavaScriptStep>
+        </elements>
+        <inboundDataType>HL7V2</inboundDataType>
+        <outboundDataType>JSON</outboundDataType>
+      </transformer>
+
+      <filter version="3.12.0"><elements/></filter>
+      <transportName>HTTP Sender</transportName>
+      <mode>DESTINATION</mode>
+      <enabled>true</enabled>
+      <waitForPrevious>true</waitForPrevious>
+    </connector>
+  </destinationConnectors>
+
+  <preprocessingScript>// Modify message if needed
+return message;</preprocessingScript>
+  <postprocessingScript>// Runs after processing
+return;</postprocessingScript>
+  <deployScript>// Runs on deploy
+return;</deployScript>
+  <undeployScript>// Runs on undeploy
+return;</undeployScript>
+</channel>

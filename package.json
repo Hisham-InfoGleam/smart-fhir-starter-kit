@@ -1,0 +1,31 @@
+{
+  "name": "smart-fhir-starter-kit",
+  "version": "1.0.0",
+  "description": "Open-source SMART on FHIR + HL7/Mirth educational toolkit for healthcare developers",
+  "scripts": {
+    "start:receiver": "cd mirth/mock-server && node server.js",
+    "start:smart-app": "cd smart-app && python -m http.server 8000",
+    "start:smart-app-npx": "npx http-server smart-app -p 8000 -c-1",
+    "test:receiver": "curl -X POST http://localhost:3000/fhir -H \"Content-Type: application/json\" -d \"{\\\"resourceType\\\":\\\"Patient\\\",\\\"id\\\":\\\"test-123\\\"}\"",
+    "test:health": "curl http://localhost:3000/health"
+  },
+  "keywords": [
+    "SMART",
+    "FHIR",
+    "HL7",
+    "Mirth",
+    "healthcare",
+    "interoperability",
+    "education",
+    "tutorial"
+  ],
+  "author": "InfoGleam",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/infogleam/smart-fhir-starter-kit"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

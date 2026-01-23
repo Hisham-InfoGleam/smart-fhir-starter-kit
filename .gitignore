@@ -1,0 +1,45 @@
+# === Secrets & Credentials ===
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/
+credentials/
+
+# === Private Configuration ===
+smart-app/config.local.js
+
+# === Internal/Private Content ===
+internal/
+private/
+notes/
+docs/DEMO_PLAYBOOK.md
+docs/personal/
+NOTES.md
+PRESENTATION*.md
+*.ppt
+*.pptx
+*.odp
+
+# === Build Artifacts ===
+node_modules/
+dist/
+build/
+*.log
+coverage/
+.nyc_output/
+
+# === IDE/Editor ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# === OS Files ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

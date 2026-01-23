@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>InfoGleam Launch (SMART on FHIR)</title>
+  <script src="./config.js"></script>
+  <script src="./config.local.js" onerror="void 0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; }
+    .hint { color: #555; max-width: 720px; }
+  </style>
+</head>
+<body>
+  <h2>Launching SMART Context…</h2>
+  <p class="hint">
+    This page starts the SMART on FHIR OAuth2 handshake. If you are running from the SMART App Launcher,
+    it will provide the required <code>iss</code> and <code>launch</code> parameters.
+  </p>
+
+  <script>
+    const cfg = window.INFOGLEAM_CONFIG || {};
+
+    // NOTE: For the SMART public sandbox, "my_web_app" is a common default.
+    // If your EHR/sandbox provides a different Client ID, set it in config.local.js.
+    const clientId = cfg.smartClientId || "my_web_app";
+
+    // Some sandboxes show a "Practitioner Login" screen if you request user identity scopes
+    // (e.g., openid/fhirUser) but the dataset has no Practitioner records.
+    // Keep this off by default so the demo works reliably.
+    const includeUserContext = Boolean(cfg.includeUserContext);
+
+    const scope = (typeof cfg.smartScopes === "string" && cfg.smartScopes.trim())
+      ? cfg.smartScopes.trim()
+      : (() => {
+          const scopes = [
+            // Context
+            "launch/patient",
+            // Data access
+            "patient/*.read"
+          ];
+
+          if (includeUserContext) {
+            scopes.push("openid", "fhirUser");
+          }
+
+          return scopes.join(" ");
+        })();
+
+    const redirectUri = new URL("index.html", window.location.href).toString();
+
+    FHIR.oauth2.authorize({
+      client_id: clientId,
+      scope,
+      redirectUri
+    });
+  </script>
+</body>
+</html>

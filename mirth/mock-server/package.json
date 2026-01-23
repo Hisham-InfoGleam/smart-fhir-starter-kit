@@ -1,0 +1,13 @@
+{
+  "name": "infogleam-mirth-mock-receiver",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny HTTP endpoint to receive JSON from Mirth Connect (InfoGleam Interop POC)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
