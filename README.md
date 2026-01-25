@@ -136,5 +136,4 @@ This project is provided as an **educational resource** for the healthcare devel
 Use it freely to learn, build, and improve healthcare interoperability.
 
 ---
-
 **Built with love for the healthcare community by [InfoGleam](https://infogleam.com)**
