@@ -128,7 +128,14 @@ Contributions are welcome! Feel free to:
 - Share your learning experiences
 
 ---
+## 👨‍💻 Author
 
+**InfoGleam Health Systems**  
+*Healthcare Interoperability Specialists*
+*Hisham Hussein Alrashdan*
+For questions or consulting inquiries, contact: hisham@infogleam.com
+
+---
 ## License
 
 This project is provided as an **educational resource** for the healthcare developer community.
