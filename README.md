@@ -130,8 +130,7 @@ Contributions are welcome! Feel free to:
 ---
 ## 👨‍💻 Author
 
-**InfoGleam Health Systems**  
-*Healthcare Interoperability Specialists*
+**InfoGleam Systems**  
 *Hisham Hussein Alrashdan*
 For questions or consulting inquiries, contact: hisham@infogleam.com
 
