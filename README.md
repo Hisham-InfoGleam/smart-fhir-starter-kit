@@ -131,7 +131,7 @@ Contributions are welcome! Feel free to:
 ## 👨‍💻 Author
 
 **InfoGleam Systems**  
-*Hisham  Alrashdan*
+*Hisham Hussein Alrashdan*
 For questions or consulting inquiries, contact: hisham@infogleam.com
 
 www.infoGleam.com
