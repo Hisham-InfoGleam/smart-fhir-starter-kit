@@ -1,8 +1,8 @@
 {
-  "name": "infogleam-mirth-mock-receiver",
+  "name": "infogleam-mock-fhir-receiver",
   "version": "1.0.0",
   "private": true,
-  "description": "Tiny HTTP endpoint to receive JSON from Mirth Connect (InfoGleam Interop POC)",
+  "description": "Mock HTTP endpoint that prints the FHIR JSON posted by the OIE / Mirth demo channel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

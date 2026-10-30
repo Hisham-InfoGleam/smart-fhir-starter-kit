@@ -1,12 +1,20 @@
 /*
-  InfoGleam Mock Receiver
-  Purpose: Receive JSON from Mirth HTTP Sender to prove transformation + delivery.
+  Mock FHIR receiver
+  Receives the JSON that the OIE / Mirth HTTP Sender posts, prints it, and
+  answers 200. It proves that the transform and the delivery work.
+  It does not store or validate anything. Local demo only.
 
   Run:
-    npm start
+    npm start                (listens on 127.0.0.1:3000)
 
-  Endpoint:
-    POST http://localhost:3000/fhir
+  Settings (environment variables):
+    PORT   default 3000
+    HOST   default 127.0.0.1. Use 0.0.0.0 only when the engine runs in a
+           container that cannot reach 127.0.0.1 on this computer.
+
+  Endpoints:
+    POST /fhir     print the JSON body
+    GET  /health   {"status":"ok"}
 */
 
 const http = require("http");
@@ -16,7 +24,7 @@ function readBody(req) {
     let body = "";
     req.on("data", chunk => {
       body += chunk.toString("utf8");
-      if (body.length > 2_000_000) { // 2MB safety
+      if (body.length > 2_000_000) { // 2 MB safety limit
         reject(new Error("Payload too large"));
         req.destroy();
       }
@@ -38,14 +46,14 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       const json = JSON.parse(raw);
 
-      console.log("\n--- RECEIVED FROM MIRTH ---");
+      console.log(`\n--- RECEIVED ${req.headers["content-type"] || "(no content type)"} ---`);
       console.log(JSON.stringify(json, null, 2));
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "received", resourceType: json.resourceType, id: json.id || "N/A" }));
     } catch (err) {
       console.error("\n--- BAD REQUEST ---");
-      console.error(err);
+      console.error(err.message);
 
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid JSON or request" }));
@@ -58,12 +66,14 @@ const server = http.createServer(async (req, res) => {
 });
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+const host = process.env.HOST || "127.0.0.1";
 
 server.on("error", (err) => {
   if (err && err.code === "EADDRINUSE") {
     console.error(`Port ${port} is already in use.`);
     console.error("Stop the process using that port, or run with a different port:");
-    console.error("  PowerShell: $env:PORT=3001; node server.js");
+    console.error("  PowerShell: $env:PORT=3001; npm start");
+    console.error("  bash:       PORT=3001 npm start");
     process.exit(1);
   }
 
@@ -71,8 +81,8 @@ server.on("error", (err) => {
   process.exit(1);
 });
 
-server.listen(port, () => {
-  console.log(`Mock receiver listening on http://localhost:${port}`);
-  console.log(`- POST /fhir`);
-  console.log(`- GET  /health`);
+server.listen(port, host, () => {
+  console.log(`Mock receiver listening on http://${host}:${port}`);
+  console.log("- POST /fhir");
+  console.log("- GET  /health");
 });
