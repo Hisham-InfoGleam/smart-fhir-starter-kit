@@ -35,7 +35,7 @@
     }
 
     header h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
-    header .sub { margin-top: 6px; color: var(--muted); font-size: 13px; }
+    .sub { margin-top: 6px; color: var(--muted); font-size: 13px; }
 
     main { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
@@ -81,6 +81,7 @@
 
     .row { display: flex; flex-wrap: wrap; gap: 10px 18px; color: var(--muted); font-size: 13px; }
     .row strong { color: rgba(255,255,255,0.92); font-weight: 600; }
+    .field { flex: 1; min-width: 260px; }
 
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -92,6 +93,7 @@
       font-size: 12px;
       line-height: 1.45;
       color: rgba(255,255,255,0.9);
+      white-space: pre-wrap;
     }
 
     .status {
@@ -104,6 +106,28 @@
     }
 
     .error { border-color: rgba(255,107,107,0.5); background: rgba(255,107,107,0.08); color: rgba(255,240,240,0.9); }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 6px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(121,208,255,0.45);
+      background: rgba(121,208,255,0.14);
+      color: rgba(255,255,255,0.92);
+      cursor: pointer;
+    }
+
+    .pick { margin: 6px 0; }
 
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -124,26 +148,24 @@
         <span class="pill">Fallback</span>
       </div>
       <div class="row" style="margin-bottom: 12px;">
-        <div style="flex: 1; min-width: 260px;">
+        <div class="field">
           <strong>FHIR Server URL</strong><br />
-          <input id="serverUrl" style="width: 100%; margin-top: 6px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text);" value="https://hapi.fhir.org/baseR4" />
-          <div class="sub" style="margin-top: 6px; color: var(--muted);">
+          <input id="serverUrl" value="https://hapi.fhir.org/baseR4" />
+          <div class="sub">
             Quick picks:
             <a href="#" data-server="https://hapi.fhir.org/baseR4">HAPI R4</a>
             · <a href="#" data-server="https://r4.smarthealthit.org">SMART Health IT R4</a>
           </div>
         </div>
-        <div style="flex: 1; min-width: 260px;">
+        <div class="field">
           <strong>Patient ID (optional)</strong><br />
-          <input id="patientId" style="width: 100%; margin-top: 6px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text);" placeholder="e.g. 123" />
+          <input id="patientId" placeholder="e.g. 123" />
         </div>
       </div>
 
       <div class="row" style="margin-bottom: 12px;">
-        <button id="connectBtn" style="padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(121,208,255,0.45); background: rgba(121,208,255,0.14); color: rgba(255,255,255,0.92); cursor: pointer;">
-          Connect
-        </button>
-        <span class="sub" style="color: var(--muted);">
+        <button id="connectBtn">Connect</button>
+        <span class="sub">
           Tip: This mode is useful when the SMART App Launcher is down (e.g., 502).
         </span>
       </div>
@@ -187,7 +209,17 @@
   </main>
 
   <script>
+    // All data from the FHIR server is shown with textContent or new DOM nodes,
+    // never with innerHTML, so a name like "<img onerror=...>" stays plain text.
+
     const cfg = window.INFOGLEAM_CONFIG || {};
+
+    const SECTIONS = [
+      { box: "patient", pill: "patient-pill", load: loadPatient },
+      { box: "encounters", pill: "encounters-pill", load: loadEncounters },
+      { box: "meds", pill: "meds-pill", load: loadMedications },
+      { box: "observations", pill: "obs-pill", load: loadObservations }
+    ];
 
     function safeText(value, fallback) {
       if (value === undefined || value === null || value === "") return fallback;
@@ -196,6 +228,7 @@
 
     function formatHumanName(name) {
       if (!name) return "Unknown";
+      if (name.text) return name.text;
       const given = Array.isArray(name.given) ? name.given.join(" ") : (name.given || "");
       const family = name.family || "";
       const full = (given + " " + family).trim();
@@ -209,101 +242,38 @@
       return coding[0]?.display || coding[0]?.code || null;
     }
 
-    function setStatus(text, isError) {
-      const el = document.getElementById("status");
-      el.textContent = text;
-      el.className = isError ? "status error" : "status";
+    // MedicationRequest names the drug with a code (medicationCodeableConcept)
+    // or with a link to a Medication resource (medicationReference).
+    function medicationName(r) {
+      return pickCodingDisplay(r.medicationCodeableConcept)
+        || r.medicationReference?.display
+        || r.medicationReference?.reference
+        || "Unknown medication";
     }
 
-    function setPill(id, text) {
-      document.getElementById(id).textContent = text;
+    // Value of an Observation, or of one Observation.component.
+    function formatValue(item) {
+      if (item.valueQuantity && item.valueQuantity.value !== undefined) {
+        return `${item.valueQuantity.value} ${item.valueQuantity.unit || item.valueQuantity.code || ""}`.trim();
+      }
+      if (item.valueCodeableConcept) return pickCodingDisplay(item.valueCodeableConcept) || "(coded value)";
+      if (item.valueString !== undefined) return item.valueString;
+      if (item.valueBoolean !== undefined) return String(item.valueBoolean);
+      if (item.valueInteger !== undefined) return String(item.valueInteger);
+      return null;
     }
 
-    function showDashboard() {
-      document.getElementById("dashboard").style.display = "grid";
-    }
-
-    async function loadDashboard(client, serverUrl, patientId) {
-      document.getElementById("subtitle").textContent = `Connected to ${serverUrl} • Patient ${patientId}`;
-      showDashboard();
-      setStatus("Fetching clinical data…", false);
-
-      // 1) Patient
-      const patient = await client.request(`Patient/${encodeURIComponent(patientId)}`);
-      const name = formatHumanName(patient.name?.[0]);
-      const gender = safeText(patient.gender, "unknown");
-      const birthDate = safeText(patient.birthDate, "unknown");
-
-      setPill("patient-pill", name);
-      document.getElementById("patient").innerHTML = `
-        <div><strong>Name:</strong> ${name}</div>
-        <div><strong>DOB:</strong> ${birthDate}</div>
-        <div><strong>Gender:</strong> ${gender}</div>
-        <div><strong>ID:</strong> ${safeText(patient.id, "—")}</div>
-      `;
-
-      // 2) Encounters (last 5)
-      const encBundle = await client.request(`Encounter?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=5`);
-        const encEntries = encBundle.entry || [];
-        setPill("encounters-pill", `${encEntries.length}`);
-
-        if (!encEntries.length) {
-          document.getElementById("encounters").textContent = "No encounters found.";
-        } else {
-          const lines = encEntries.map(e => {
-            const r = e.resource;
-            const start = r.period?.start || "N/A";
-            const end = r.period?.end || "";
-            const type = pickCodingDisplay(r.type?.[0]) || r.class?.display || r.class?.code || "N/A";
-            return `• ${start}${end ? " → " + end : ""} | ${type}`;
-          });
-          document.getElementById("encounters").textContent = lines.join("\n");
-        }
-
-      // 3) MedicationRequest (active)
-      const medBundle = await client.request(`MedicationRequest?patient=${encodeURIComponent(patientId)}&status=active&_count=20`);
-        const medEntries = medBundle.entry || [];
-        setPill("meds-pill", `${medEntries.length}`);
-
-        if (!medEntries.length) {
-          document.getElementById("meds").textContent = "No active MedicationRequest resources found.";
-        } else {
-          const lines = medEntries.map(e => {
-            const r = e.resource;
-            const medName = pickCodingDisplay(r.medicationCodeableConcept) || "Unknown medication";
-            const authored = r.authoredOn || "N/A";
-            return `• ${medName} | authoredOn: ${authored}`;
-          });
-          document.getElementById("meds").textContent = lines.join("\n");
-        }
-
-      // 4) Observation (last 10)
-      const obsBundle = await client.request(`Observation?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=10`);
-        const obsEntries = obsBundle.entry || [];
-        setPill("obs-pill", `${obsEntries.length}`);
-
-        if (!obsEntries.length) {
-          document.getElementById("observations").textContent = "No observations found.";
-        } else {
-          const lines = obsEntries.map(e => {
-            const r = e.resource;
-            const code = pickCodingDisplay(r.code) || "Observation";
-            const when = r.effectiveDateTime || r.issued || "N/A";
-            const value = (r.valueQuantity && (r.valueQuantity.value !== undefined))
-              ? `${r.valueQuantity.value} ${r.valueQuantity.unit || ""}`.trim()
-              : (r.valueString || r.valueCodeableConcept?.text || "(no value)");
-            return `• ${when} | ${code} | ${value}`;
-          });
-          document.getElementById("observations").textContent = lines.join("\n");
-        }
-
-      setStatus("Loaded. (Tip: open DevTools Console for request details)", false);
-    }
-
-    function showStandaloneMode(message) {
-      document.getElementById("standalone").style.display = "block";
-      setStatus(message, true);
-      document.getElementById("subtitle").textContent = "Not connected";
+    // Panels like blood pressure have no value of their own.
+    // Their values are in components (systolic, diastolic).
+    function formatObservationValue(r) {
+      const own = formatValue(r);
+      if (own !== null) return own;
+      if (Array.isArray(r.component) && r.component.length) {
+        return r.component
+          .map(c => `${pickCodingDisplay(c.code) || "component"}: ${formatValue(c) ?? "(no value)"}`)
+          .join(", ");
+      }
+      return "(no value)";
     }
 
     function formatErr(err) {
@@ -317,18 +287,137 @@
       }
     }
 
+    function setStatus(text, isError) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = isError ? "status error" : "status";
+    }
+
+    function setPill(id, text) {
+      document.getElementById(id).textContent = text;
+    }
+
+    function addField(container, label, value) {
+      const div = document.createElement("div");
+      const strong = document.createElement("strong");
+      strong.textContent = label + ":";
+      div.append(strong, " " + value);
+      container.appendChild(div);
+    }
+
+    // --- Dashboard sections. Each one loads on its own; an error stays in its card. ---
+
+    async function loadPatient(client, patientId, box) {
+      const patient = await client.request(`Patient/${encodeURIComponent(patientId)}`);
+      const name = formatHumanName(patient.name?.[0]);
+      setPill("patient-pill", name);
+      box.replaceChildren();
+      addField(box, "Name", name);
+      addField(box, "DOB", safeText(patient.birthDate, "unknown"));
+      addField(box, "Gender", safeText(patient.gender, "unknown"));
+      addField(box, "ID", safeText(patient.id, "—"));
+    }
+
+    async function loadEncounters(client, patientId, box) {
+      const bundle = await client.request(`Encounter?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=5`);
+      const entries = bundle.entry || [];
+      setPill("encounters-pill", String(entries.length));
+
+      if (!entries.length) {
+        box.textContent = "No encounters found.";
+        return;
+      }
+      box.textContent = entries.map(e => {
+        const r = e.resource;
+        const start = r.period?.start || "N/A";
+        const end = r.period?.end || "";
+        const type = pickCodingDisplay(r.type?.[0]) || r.class?.display || r.class?.code || "N/A";
+        return `• ${start}${end ? " → " + end : ""} | ${type}`;
+      }).join("\n");
+    }
+
+    async function loadMedications(client, patientId, box) {
+      const bundle = await client.request(`MedicationRequest?patient=${encodeURIComponent(patientId)}&status=active&_count=20`);
+      const entries = bundle.entry || [];
+      setPill("meds-pill", String(entries.length));
+
+      if (!entries.length) {
+        box.textContent = "No active MedicationRequest resources found.";
+        return;
+      }
+      box.textContent = entries.map(e => {
+        const r = e.resource;
+        return `• ${medicationName(r)} | authoredOn: ${r.authoredOn || "N/A"}`;
+      }).join("\n");
+    }
+
+    async function loadObservations(client, patientId, box) {
+      const bundle = await client.request(`Observation?patient=${encodeURIComponent(patientId)}&_sort=-date&_count=10`);
+      const entries = bundle.entry || [];
+      setPill("obs-pill", String(entries.length));
+
+      if (!entries.length) {
+        box.textContent = "No observations found.";
+        return;
+      }
+      box.textContent = entries.map(e => {
+        const r = e.resource;
+        const code = pickCodingDisplay(r.code) || "Observation";
+        const when = r.effectiveDateTime || r.effectivePeriod?.start || r.issued || "N/A";
+        return `• ${when} | ${code} | ${formatObservationValue(r)}`;
+      }).join("\n");
+    }
+
+    async function loadDashboard(client, serverUrl, patientId) {
+      document.getElementById("subtitle").textContent = `Connected to ${serverUrl} • Patient ${patientId}`;
+      document.getElementById("dashboard").style.display = "grid";
+      setStatus("Fetching clinical data…", false);
+
+      const results = await Promise.all(SECTIONS.map(async (s) => {
+        const box = document.getElementById(s.box);
+        box.classList.remove("error");
+        box.textContent = "Loading…";
+        setPill(s.pill, "…");
+        try {
+          await s.load(client, patientId, box);
+          return true;
+        } catch (err) {
+          console.error(`Loading ${s.box} failed:`, err);
+          box.classList.add("error");
+          box.textContent = `Could not load this section: ${formatErr(err)}`;
+          setPill(s.pill, "error");
+          return false;
+        }
+      }));
+
+      const failed = results.filter(ok => !ok).length;
+      if (failed) {
+        setStatus(`Connected, but ${failed} of ${SECTIONS.length} sections could not be loaded. See the red cards and the browser console.`, true);
+      } else {
+        setStatus("Loaded. (Tip: open DevTools Console for request details)", false);
+      }
+    }
+
+    // --- Standalone mode: read an open FHIR server, no SMART ---
+
+    function showStandaloneMode(message, isError) {
+      document.getElementById("standalone").style.display = "block";
+      document.getElementById("subtitle").textContent = "Not connected";
+      setStatus(message, isError);
+    }
+
     async function connectStandalone() {
       const serverUrl = document.getElementById("serverUrl").value.trim();
       const patientIdInput = document.getElementById("patientId").value.trim();
 
       if (!serverUrl) {
-        showStandaloneMode("Please provide a FHIR Server URL.");
+        setStatus("Please enter a FHIR server URL.", true);
         return;
       }
 
       const client = FHIR.client({ serverUrl });
 
-      // If patient id is provided, load immediately. Otherwise show a picker.
+      // With a patient ID, load the dashboard now. Without one, show a picker.
       if (patientIdInput) {
         await loadDashboard(client, serverUrl, patientIdInput);
         return;
@@ -339,69 +428,98 @@
       const entries = bundle.entry || [];
 
       const picker = document.getElementById("patientPicker");
+      picker.replaceChildren();
       picker.style.display = "block";
 
       if (!entries.length) {
         picker.textContent = "No patients returned from the server. Try entering a Patient ID manually.";
+        setStatus("Connected, but the server returned no patients.", false);
         return;
       }
 
-      const lines = entries.map((e, idx) => {
-        const p = e.resource;
+      picker.append("Select a patient:");
+      entries.forEach((e, idx) => {
+        const p = e.resource || {};
         const id = p.id || "";
-        const label = `${formatHumanName(p.name?.[0])} (id: ${id})`;
-        return `<div style=\"margin: 6px 0;\"><a href=\"#\" data-id=\"${id}\" style=\"color: var(--accent);\">${idx + 1}. ${label}</a></div>`;
-      }).join("");
-
-      picker.innerHTML = `Select a patient:<br/>${lines}`;
-      picker.querySelectorAll("a[data-id]").forEach(a => {
-        a.addEventListener("click", async (ev) => {
+        const row = document.createElement("div");
+        row.className = "pick";
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = `${idx + 1}. ${formatHumanName(p.name?.[0])} (id: ${id})`;
+        link.addEventListener("click", (ev) => {
           ev.preventDefault();
-          const id = ev.currentTarget.getAttribute("data-id");
           document.getElementById("patientId").value = id;
-          await loadDashboard(client, serverUrl, id);
+          loadDashboard(client, serverUrl, id);
         });
+        row.appendChild(link);
+        picker.appendChild(row);
       });
+      setStatus(`Connected. ${entries.length} patients found. Pick one below.`, false);
+    }
+
+    // --- Start ---
+
+    // fhirclient keeps the SMART state in sessionStorage under "SMART_KEY".
+    // Right after the authorization redirect the URL also has ?code=&state= (or ?error=).
+    function hasSmartLaunchState() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("code") || params.has("state") || params.has("error")) return true;
+      try {
+        return Boolean(sessionStorage.getItem("SMART_KEY"));
+      } catch {
+        return false;
+      }
     }
 
     async function main() {
-      // Apply configured standalone defaults (safe even if config.local.js is missing)
-      const serverUrlInput = document.getElementById("serverUrl");
-      if (serverUrlInput && cfg.standaloneServerUrl) {
-        serverUrlInput.value = cfg.standaloneServerUrl;
+      if (cfg.standaloneServerUrl) {
+        document.getElementById("serverUrl").value = cfg.standaloneServerUrl;
       }
 
-      // Try SMART first
-      try {
-        const client = await FHIR.oauth2.ready();
-        const serverUrl = client.state?.serverUrl || "(unknown)";
-        const patientId = client.patient?.id;
-        if (!patientId) {
-          showStandaloneMode("SMART context loaded but no patient is selected. Try launching with a patient, or use Standalone Mode.");
-          return;
-        }
-        await loadDashboard(client, serverUrl, patientId);
+      if (!window.FHIR) {
+        showStandaloneMode("The fhirclient library did not load from the CDN. Check your internet connection and the browser console.", true);
         return;
+      }
+
+      // Opened directly (not from a SMART launch): no need to try SMART.
+      if (!hasSmartLaunchState()) {
+        showStandaloneMode(
+          "No SMART launch found. To test the SMART flow, start the app from a SMART launcher " +
+          "(see the README). Or use Standalone Mode below to read a public FHIR test server.",
+          false
+        );
+        return;
+      }
+
+      let client;
+      try {
+        client = await FHIR.oauth2.ready();
       } catch (err) {
         console.error(err);
+        showStandaloneMode(`SMART launch failed (${formatErr(err)}). Launch again from the SMART launcher, or use Standalone Mode below.`, true);
+        return;
       }
 
-      // Fallback: standalone
-      showStandaloneMode("SMART launch failed (or SMART Launcher may be down). Use Standalone Mode below, or retry from /launch.html.");
+      const patientId = client.patient.id;
+      if (!patientId) {
+        showStandaloneMode("SMART launch worked, but no patient was selected. Launch again with a patient, or use Standalone Mode below.", true);
+        return;
+      }
+
+      await loadDashboard(client, client.state.serverUrl || "(unknown)", patientId);
     }
 
     document.getElementById("connectBtn").addEventListener("click", () => {
       connectStandalone().catch(err => {
         console.error(err);
-        showStandaloneMode(`Failed to connect in standalone mode: ${formatErr(err)}. Try a different server (e.g., HAPI R4) or check if the endpoint is returning 502.`);
+        setStatus(`Failed to connect in standalone mode: ${formatErr(err)}. Try a different server (e.g., HAPI R4) or check if the endpoint is returning 502.`, true);
       });
     });
 
     document.querySelectorAll("a[data-server]").forEach(a => {
       a.addEventListener("click", (ev) => {
         ev.preventDefault();
-        const url = ev.currentTarget.getAttribute("data-server");
-        document.getElementById("serverUrl").value = url;
+        document.getElementById("serverUrl").value = ev.currentTarget.getAttribute("data-server");
       });
     });
 
