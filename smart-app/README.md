@@ -6,9 +6,9 @@ A static browser app. It shows:
 - FHIR R4 reads for the patient in context
 - a simple patient dashboard
 
-It has no build step and no server code. fhirclient.js 3.0.1 loads from the
-jsDelivr CDN with a Subresource Integrity (SRI) hash, so the browser refuses
-the file if it changes.
+It has no build step and no server code. fhirclient.js 2.6.3 (the last 2.x
+release) loads from the jsDelivr CDN with a Subresource Integrity (SRI) hash,
+so the browser refuses the file if it changes.
 
 ## Run it
 
