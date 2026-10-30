@@ -1,143 +1,535 @@
-<!--
-  Sanitized Mirth channel export (starter template).
-  If your Mirth version rejects this import, create the channel manually and paste:
-    mirth/channel-logic.js
-  into a Destination Transformer JavaScript step.
--->
-<channel version="3.12.0">
-  <id>Infogleam-POC-002</id>
+<channel version="4.7.0">
+  <id>1b0ef0b1-3b37-4a6a-a93b-e1142bf3c27a</id>
   <nextMetaDataId>2</nextMetaDataId>
   <name>Infogleam_HL7_to_FHIR</name>
-  <description>PoC: Ingest HL7 v2, validate, transform to JSON, POST to receiver.</description>
-  <revision>1</revision>
-
-  <sourceConnector version="3.12.0">
+  <description>Demo channel. Receives HL7 v2 messages (ADT, ORU) over MLLP on port 6661, maps them to FHIR R4 JSON in the destination transformer (same script as mirth/channel-logic.js), and posts the JSON to http://localhost:3000/fhir. Use synthetic test data only.</description>
+  <revision>2</revision>
+  <sourceConnector version="4.7.0">
     <metaDataId>0</metaDataId>
-    <name>Source</name>
-    <properties class="com.mirth.connect.connectors.tcp.TcpReceiverProperties" version="3.12.0">
-      <listenerConnectorProperties version="3.12.0">
+    <name>sourceConnector</name>
+    <properties class="com.mirth.connect.connectors.tcp.TcpReceiverProperties" version="4.7.0">
+      <pluginProperties/>
+      <listenerConnectorProperties version="4.7.0">
         <host>0.0.0.0</host>
         <port>6661</port>
       </listenerConnectorProperties>
+      <sourceConnectorProperties version="4.7.0">
+        <responseVariable>Auto-generate (Destinations completed)</responseVariable>
+        <respondAfterProcessing>true</respondAfterProcessing>
+        <processBatch>false</processBatch>
+        <firstResponse>true</firstResponse>
+        <processingThreads>1</processingThreads>
+        <resourceIds class="linked-hash-map">
+          <entry>
+            <string>Default Resource</string>
+            <string>[Default Resource]</string>
+          </entry>
+        </resourceIds>
+        <queueBufferSize>1000</queueBufferSize>
+      </sourceConnectorProperties>
       <transmissionModeProperties class="com.mirth.connect.plugins.mllpmode.MLLPModeProperties">
+        <pluginPointName>MLLP</pluginPointName>
         <startOfMessageBytes>0B</startOfMessageBytes>
         <endOfMessageBytes>1C0D</endOfMessageBytes>
+        <useMLLPv2>false</useMLLPv2>
+        <ackBytes>06</ackBytes>
+        <nackBytes>15</nackBytes>
+        <maxRetries>2</maxRetries>
       </transmissionModeProperties>
-      <responseValue>MSH|^~\&amp;|InfoGleam|System|||20260118||ACK|1|P|2.3&#13;MSA|AA|1</responseValue>
-      <sendResponse>true</sendResponse>
+      <serverMode>true</serverMode>
+      <remoteAddress></remoteAddress>
+      <remotePort></remotePort>
+      <overrideLocalBinding>false</overrideLocalBinding>
+      <reconnectInterval>5000</reconnectInterval>
+      <receiveTimeout>0</receiveTimeout>
+      <bufferSize>65536</bufferSize>
+      <maxConnections>10</maxConnections>
+      <keepConnectionOpen>true</keepConnectionOpen>
+      <dataTypeBinary>false</dataTypeBinary>
+      <charsetEncoding>DEFAULT_ENCODING</charsetEncoding>
+      <respondOnNewConnection>0</respondOnNewConnection>
+      <responseAddress></responseAddress>
+      <responsePort></responsePort>
     </properties>
-    <transformer version="3.12.0">
+    <transformer version="4.7.0">
       <elements/>
       <inboundDataType>HL7V2</inboundDataType>
       <outboundDataType>HL7V2</outboundDataType>
-      <inboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="3.12.0"/>
-      <outboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="3.12.0"/>
+      <inboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="4.7.0">
+        <serializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2SerializationProperties" version="4.7.0">
+          <handleRepetitions>true</handleRepetitions>
+          <handleSubcomponents>true</handleSubcomponents>
+          <useStrictParser>false</useStrictParser>
+          <useStrictValidation>false</useStrictValidation>
+          <stripNamespaces>true</stripNamespaces>
+          <segmentDelimiter>\r</segmentDelimiter>
+          <convertLineBreaks>true</convertLineBreaks>
+        </serializationProperties>
+        <deserializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DeserializationProperties" version="4.7.0">
+          <useStrictParser>false</useStrictParser>
+          <useStrictValidation>false</useStrictValidation>
+          <segmentDelimiter>\r</segmentDelimiter>
+        </deserializationProperties>
+        <batchProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2BatchProperties" version="4.7.0">
+          <splitType>MSH_Segment</splitType>
+          <batchScript></batchScript>
+        </batchProperties>
+        <responseGenerationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseGenerationProperties" version="4.7.0">
+          <segmentDelimiter>\r</segmentDelimiter>
+          <successfulACKCode>AA</successfulACKCode>
+          <successfulACKMessage></successfulACKMessage>
+          <errorACKCode>AE</errorACKCode>
+          <errorACKMessage>An Error Occurred Processing Message.</errorACKMessage>
+          <rejectedACKCode>AR</rejectedACKCode>
+          <rejectedACKMessage>Message Rejected.</rejectedACKMessage>
+          <msh15ACKAccept>false</msh15ACKAccept>
+          <dateFormat>yyyyMMddHHmmss.SSS</dateFormat>
+        </responseGenerationProperties>
+        <responseValidationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseValidationProperties" version="4.7.0">
+          <successfulACKCode>AA,CA</successfulACKCode>
+          <errorACKCode>AE,CE</errorACKCode>
+          <rejectedACKCode>AR,CR</rejectedACKCode>
+          <validateMessageControlId>true</validateMessageControlId>
+          <originalMessageControlId>Destination_Encoded</originalMessageControlId>
+          <originalIdMapVariable></originalIdMapVariable>
+        </responseValidationProperties>
+      </inboundProperties>
+      <outboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="4.7.0">
+        <serializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2SerializationProperties" version="4.7.0">
+          <handleRepetitions>true</handleRepetitions>
+          <handleSubcomponents>true</handleSubcomponents>
+          <useStrictParser>false</useStrictParser>
+          <useStrictValidation>false</useStrictValidation>
+          <stripNamespaces>true</stripNamespaces>
+          <segmentDelimiter>\r</segmentDelimiter>
+          <convertLineBreaks>true</convertLineBreaks>
+        </serializationProperties>
+        <deserializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DeserializationProperties" version="4.7.0">
+          <useStrictParser>false</useStrictParser>
+          <useStrictValidation>false</useStrictValidation>
+          <segmentDelimiter>\r</segmentDelimiter>
+        </deserializationProperties>
+        <batchProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2BatchProperties" version="4.7.0">
+          <splitType>MSH_Segment</splitType>
+          <batchScript></batchScript>
+        </batchProperties>
+        <responseGenerationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseGenerationProperties" version="4.7.0">
+          <segmentDelimiter>\r</segmentDelimiter>
+          <successfulACKCode>AA</successfulACKCode>
+          <successfulACKMessage></successfulACKMessage>
+          <errorACKCode>AE</errorACKCode>
+          <errorACKMessage>An Error Occurred Processing Message.</errorACKMessage>
+          <rejectedACKCode>AR</rejectedACKCode>
+          <rejectedACKMessage>Message Rejected.</rejectedACKMessage>
+          <msh15ACKAccept>false</msh15ACKAccept>
+          <dateFormat>yyyyMMddHHmmss.SSS</dateFormat>
+        </responseGenerationProperties>
+        <responseValidationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseValidationProperties" version="4.7.0">
+          <successfulACKCode>AA,CA</successfulACKCode>
+          <errorACKCode>AE,CE</errorACKCode>
+          <rejectedACKCode>AR,CR</rejectedACKCode>
+          <validateMessageControlId>true</validateMessageControlId>
+          <originalMessageControlId>Destination_Encoded</originalMessageControlId>
+          <originalIdMapVariable></originalIdMapVariable>
+        </responseValidationProperties>
+      </outboundProperties>
     </transformer>
-    <filter version="3.12.0"><elements/></filter>
+    <filter version="4.7.0">
+      <elements/>
+    </filter>
     <transportName>TCP Listener</transportName>
     <mode>SOURCE</mode>
     <enabled>true</enabled>
     <waitForPrevious>true</waitForPrevious>
   </sourceConnector>
-
   <destinationConnectors>
-    <connector version="3.12.0">
+    <connector version="4.7.0">
       <metaDataId>1</metaDataId>
-      <name>POST to Mock Receiver</name>
-      <properties class="com.mirth.connect.connectors.http.HttpDispatcherProperties" version="3.12.0">
+      <name>POST FHIR JSON to receiver</name>
+      <properties class="com.mirth.connect.connectors.http.HttpDispatcherProperties" version="4.7.0">
+        <pluginProperties/>
+        <destinationConnectorProperties version="4.7.0">
+          <queueEnabled>false</queueEnabled>
+          <sendFirst>false</sendFirst>
+          <retryIntervalMillis>10000</retryIntervalMillis>
+          <regenerateTemplate>false</regenerateTemplate>
+          <retryCount>0</retryCount>
+          <rotate>false</rotate>
+          <includeFilterTransformer>false</includeFilterTransformer>
+          <threadCount>1</threadCount>
+          <threadAssignmentVariable></threadAssignmentVariable>
+          <validateResponse>false</validateResponse>
+          <resourceIds class="linked-hash-map">
+            <entry>
+              <string>Default Resource</string>
+              <string>[Default Resource]</string>
+            </entry>
+          </resourceIds>
+          <queueBufferSize>1000</queueBufferSize>
+          <reattachAttachments>true</reattachAttachments>
+        </destinationConnectorProperties>
         <host>http://localhost:3000/fhir</host>
+        <useProxyServer>false</useProxyServer>
+        <proxyAddress></proxyAddress>
+        <proxyPort></proxyPort>
+        <overrideLocalBinding>false</overrideLocalBinding>
         <method>post</method>
-        <headers class="linked-hash-map">
-          <entry>
-            <string>Content-Type</string>
-            <list><string>application/json</string></list>
-          </entry>
-        </headers>
-        <responseXmlBody>false</responseXmlBody>
+        <headers class="linked-hash-map"/>
+        <parameters class="linked-hash-map"/>
         <useHeadersVariable>false</useHeadersVariable>
-        <contentType>application/json</contentType>
+        <headersVariable></headersVariable>
+        <useParametersVariable>false</useParametersVariable>
+        <parametersVariable></parametersVariable>
+        <responseXmlBody>false</responseXmlBody>
+        <responseParseMultipart>true</responseParseMultipart>
+        <responseIncludeMetadata>false</responseIncludeMetadata>
+        <responseBinaryMimeTypes>application/.*(?&lt;!json|xml)$|image/.*|video/.*|audio/.*</responseBinaryMimeTypes>
+        <responseBinaryMimeTypesRegex>true</responseBinaryMimeTypesRegex>
+        <multipart>false</multipart>
+        <useAuthentication>false</useAuthentication>
+        <authenticationType>Basic</authenticationType>
+        <usePreemptiveAuthentication>false</usePreemptiveAuthentication>
+        <username></username>
+        <password></password>
+        <content>${message.encodedData}</content>
+        <contentType>application/fhir+json</contentType>
         <dataTypeBinary>false</dataTypeBinary>
+        <charset>UTF-8</charset>
         <socketTimeout>30000</socketTimeout>
       </properties>
-
-      <transformer version="3.12.0">
+      <transformer version="4.7.0">
         <elements>
-          <com.mirth.connect.plugins.javascriptstep.JavaScriptStep version="3.12.0">
-            <script><![CDATA[
-// Minimal inline transformer.
-// For the full reviewable logic, see: mirth/channel-logic.js
+          <com.mirth.connect.plugins.javascriptstep.JavaScriptStep version="4.7.0">
+            <name>HL7 v2 to FHIR JSON</name>
+            <sequenceNumber>0</sequenceNumber>
+            <enabled>true</enabled>
+            <script>/*
+  HL7 v2 to FHIR R4 JSON
+  Transformer script for Open Integration Engine (OIE) or Mirth Connect.
 
-function toStringSafe(v) {
-  return (v === null || v === undefined) ? "" : String(v);
+  Where it runs: the JavaScript step &quot;HL7 v2 to FHIR JSON&quot; in the destination
+  transformer of channels/Infogleam_HL7_to_FHIR.xml. The channel file holds an
+  exact copy of this script. If you change one, change the other.
+
+  What it does:
+  - Checks that MSH-10 (message control ID) and PID-3 (patient ID) are present.
+    If one is missing, the script throws an error. The message gets the status
+    ERROR and the sender gets a negative ACK (MSA-1 = AE).
+  - ADT messages become one FHIR Patient.
+  - ORU messages become a FHIR Bundle (type &quot;collection&quot;) with one Observation
+    for each OBX segment.
+  - Other message types become a FHIR Basic resource that records the type.
+
+  The engine gives this script the parsed HL7 message as `msg` (E4X XML).
+  At the end the script replaces `msg` with a JSON string. The HTTP Sender
+  posts that string to the receiver.
+
+  This is demo code for learning. Check the mappings against the HL7 v2-to-FHIR
+  guide (https://hl7.org/fhir/uv/v2mappings/) before you use it with real data.
+*/
+
+// --- Helpers ---
+
+// Text of the first matching element, or &quot;&quot; when the element is missing.
+function text(node) {
+  if (node === undefined || node === null) return &quot;&quot;;
+  var first = node[0];
+  if (first === undefined || first === null) return &quot;&quot;;
+  return String(first).trim();
 }
 
-function convertHL7Date(hl7Date) {
-  var d = toStringSafe(hl7Date);
-  if (d.length >= 8) return d.substring(0,4) + "-" + d.substring(4,6) + "-" + d.substring(6,8);
-  return null;
+// HL7 v2 timestamp: YYYY[MM[DD[HH[MM[SS[.S...]]]]]][+/-ZZZZ]
+var HL7_TS = /^(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\.\d{1,4})?([+-]\d{4})?$/;
+
+// HL7 date or timestamp -&gt; FHIR date (YYYY, YYYY-MM or YYYY-MM-DD).
+function toFhirDate(value) {
+  var m = HL7_TS.exec(value);
+  if (!m) return undefined;
+  var out = m[1];
+  if (m[2]) out += &quot;-&quot; + m[2];
+  if (m[3]) out += &quot;-&quot; + m[3];
+  return out;
 }
 
-function mapGender(hl7Sex) {
-  var s = toStringSafe(hl7Sex).toUpperCase();
-  if (s === "M") return "male";
-  if (s === "F") return "female";
-  return "unknown";
+// HL7 timestamp -&gt; FHIR dateTime.
+// FHIR needs a time zone when a time is given. If the HL7 value has no zone
+// (+/-ZZZZ), only the date is kept. Add your site&apos;s zone here if you need it.
+function toFhirDateTime(value) {
+  var m = HL7_TS.exec(value);
+  if (!m) return undefined;
+  if (!m[4] || !m[8]) return toFhirDate(value);
+  return m[1] + &quot;-&quot; + m[2] + &quot;-&quot; + m[3] +
+    &quot;T&quot; + m[4] + &quot;:&quot; + (m[5] || &quot;00&quot;) + &quot;:&quot; + (m[6] || &quot;00&quot;) + (m[7] || &quot;&quot;) +
+    m[8].substring(0, 3) + &quot;:&quot; + m[8].substring(3);
 }
 
-var msgType = toStringSafe(msg['MSH']['MSH.9']['MSH.9.1']);
-var controlId = toStringSafe(msg['MSH']['MSH.10']['MSH.10.1']);
-var patientId = toStringSafe(msg['PID']['PID.3']['PID.3.1']);
+// PID-8 administrative sex (HL7 table 0001) -&gt; FHIR gender.
+function toFhirGender(sex) {
+  switch (sex.toUpperCase()) {
+    case &quot;M&quot;: return &quot;male&quot;;
+    case &quot;F&quot;: return &quot;female&quot;;
+    case &quot;A&quot;:
+    case &quot;O&quot;: return &quot;other&quot;;
+    default: return &quot;unknown&quot;;
+  }
+}
 
-if (!controlId) throw "VALIDATION ERROR: Missing MSH-10";
-if (!patientId) throw "VALIDATION ERROR: Missing PID-3";
+// OBX-11 result status -&gt; FHIR Observation.status.
+var RESULT_STATUS = {
+  F: &quot;final&quot;,
+  C: &quot;corrected&quot;,
+  P: &quot;preliminary&quot;,
+  X: &quot;cancelled&quot;,
+  W: &quot;entered-in-error&quot;
+};
 
-var out = {};
+// OBX-3 -&gt; CodeableConcept. Coding system &quot;LN&quot; means LOINC.
+function observationCode(obx) {
+  var code = text(obx[&apos;OBX.3&apos;][&apos;OBX.3.1&apos;]);
+  var display = text(obx[&apos;OBX.3&apos;][&apos;OBX.3.2&apos;]);
+  var system = text(obx[&apos;OBX.3&apos;][&apos;OBX.3.3&apos;]);
+  var concept = {};
+  if (code) {
+    var coding = {};
+    if (system === &quot;LN&quot;) coding.system = &quot;http://loinc.org&quot;;
+    coding.code = code;
+    if (display) coding.display = display;
+    concept.coding = [coding];
+  }
+  concept.text = display || code || &quot;Lab result&quot;;
+  return concept;
+}
 
-if (msgType === "ADT") {
+// OBX-2 / OBX-5 / OBX-6 -&gt; Observation value.
+// NM (numeric) becomes valueQuantity with the unit from OBX-6.
+// Every other value type is kept as text in valueString.
+function setObservationValue(observation, obx) {
+  var valueType = text(obx[&apos;OBX.2&apos;][&apos;OBX.2.1&apos;]).toUpperCase();
+  var raw = text(obx[&apos;OBX.5&apos;][&apos;OBX.5.1&apos;]);
+  if (!raw) return;
+  if (valueType === &quot;NM&quot; &amp;&amp; !isNaN(Number(raw))) {
+    observation.valueQuantity = { value: Number(raw) };
+    var unit = text(obx[&apos;OBX.6&apos;][&apos;OBX.6.1&apos;]);
+    if (unit) observation.valueQuantity.unit = unit;
+    return;
+  }
+  observation.valueString = raw;
+}
+
+// Every resource is tagged as demo data.
+var META = { tag: [{ system: &quot;http://example.org/tags&quot;, code: &quot;demo&quot; }] };
+
+// --- 1) Read the header and check the required fields ---
+
+var msgType = text(msg[&apos;MSH&apos;][&apos;MSH.9&apos;][&apos;MSH.9.1&apos;]);   // ADT, ORU, ORM, ...
+var trigger = text(msg[&apos;MSH&apos;][&apos;MSH.9&apos;][&apos;MSH.9.2&apos;]);   // A01, R01, O01, ...
+var controlId = text(msg[&apos;MSH&apos;][&apos;MSH.10&apos;][&apos;MSH.10.1&apos;]);
+if (!controlId) {
+  throw &quot;VALIDATION ERROR: Missing MSH-10 (message control ID)&quot;;
+}
+
+var patientId = text(msg[&apos;PID&apos;][&apos;PID.3&apos;][&apos;PID.3.1&apos;]);
+if (!patientId) {
+  throw &quot;VALIDATION ERROR: Missing PID-3 (patient ID / MRN)&quot;;
+}
+
+// --- 2) Map to FHIR R4 JSON ---
+
+var out;
+
+if (msgType === &quot;ADT&quot;) {
   out = {
-    resourceType: "Patient",
+    resourceType: &quot;Patient&quot;,
     id: patientId,
-    name: [{
-      family: toStringSafe(msg['PID']['PID.5']['PID.5.1']),
-      given: [toStringSafe(msg['PID']['PID.5']['PID.5.2'])]
-    }],
-    gender: mapGender(toStringSafe(msg['PID']['PID.8']['PID.8.1'])),
-    birthDate: convertHL7Date(toStringSafe(msg['PID']['PID.7']['PID.7.1']))
+    meta: META,
+    identifier: [{ system: &quot;http://hospital.example.org/mrn&quot;, value: patientId }]
   };
-} else if (msgType === "ORU") {
-  out = {
-    resourceType: "Observation",
-    status: "final",
-    subject: { reference: "Patient/" + patientId },
-    code: { text: toStringSafe(msg['OBR']['OBR.4']['OBR.4.2']) },
-    valueString: toStringSafe(msg['OBX']['OBX.5']['OBX.5.1'])
-  };
+
+  var family = text(msg[&apos;PID&apos;][&apos;PID.5&apos;][&apos;PID.5.1&apos;]);
+  var given = text(msg[&apos;PID&apos;][&apos;PID.5&apos;][&apos;PID.5.2&apos;]);
+  if (family || given) {
+    var name = { use: &quot;official&quot; };
+    if (family) name.family = family;
+    if (given) name.given = [given];
+    out.name = [name];
+  }
+
+  out.gender = toFhirGender(text(msg[&apos;PID&apos;][&apos;PID.8&apos;][&apos;PID.8.1&apos;]));
+
+  var birthDate = toFhirDate(text(msg[&apos;PID&apos;][&apos;PID.7&apos;][&apos;PID.7.1&apos;]));
+  if (birthDate) out.birthDate = birthDate;
+
+} else if (msgType === &quot;ORU&quot;) {
+  // OBR-7 (observation date/time) is the fallback when an OBX has no OBX-14.
+  // This demo reads the first OBR only.
+  var obrTime = text(msg[&apos;OBR&apos;][&apos;OBR.7&apos;][&apos;OBR.7.1&apos;]);
+  var entries = [];
+  var obxList = msg[&apos;OBX&apos;];
+
+  for (var i = 0; i &lt; obxList.length(); i++) {
+    var obx = obxList[i];
+    var observation = {
+      resourceType: &quot;Observation&quot;,
+      meta: META,
+      status: RESULT_STATUS[text(obx[&apos;OBX.11&apos;][&apos;OBX.11.1&apos;]).toUpperCase()] || &quot;unknown&quot;,
+      code: observationCode(obx),
+      subject: { reference: &quot;Patient/&quot; + patientId }
+    };
+
+    var effective = toFhirDateTime(text(obx[&apos;OBX.14&apos;][&apos;OBX.14.1&apos;]) || obrTime);
+    if (effective) observation.effectiveDateTime = effective;
+
+    setObservationValue(observation, obx);
+    entries.push({ resource: observation });
+  }
+
+  out = { resourceType: &quot;Bundle&quot;, type: &quot;collection&quot; };
+  if (entries.length) out.entry = entries;
+
 } else {
-  out = { resourceType: "Basic", id: controlId, code: { text: "Unhandled type: " + msgType } };
+  out = {
+    resourceType: &quot;Basic&quot;,
+    id: controlId,
+    meta: META,
+    code: { text: &quot;Unhandled HL7 message type&quot; },
+    extension: [{ url: &quot;http://example.org/hl7/msgType&quot;, valueString: msgType || &quot;unknown&quot; }]
+  };
+  if (trigger) {
+    out.extension.push({ url: &quot;http://example.org/hl7/trigger&quot;, valueString: trigger });
+  }
 }
+
+// --- 3) Hand the JSON to the HTTP Sender ---
 
 msg = JSON.stringify(out);
-            ]]></script>
+</script>
           </com.mirth.connect.plugins.javascriptstep.JavaScriptStep>
         </elements>
         <inboundDataType>HL7V2</inboundDataType>
         <outboundDataType>JSON</outboundDataType>
+        <inboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="4.7.0">
+          <serializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2SerializationProperties" version="4.7.0">
+            <handleRepetitions>true</handleRepetitions>
+            <handleSubcomponents>true</handleSubcomponents>
+            <useStrictParser>false</useStrictParser>
+            <useStrictValidation>false</useStrictValidation>
+            <stripNamespaces>true</stripNamespaces>
+            <segmentDelimiter>\r</segmentDelimiter>
+            <convertLineBreaks>true</convertLineBreaks>
+          </serializationProperties>
+          <deserializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DeserializationProperties" version="4.7.0">
+            <useStrictParser>false</useStrictParser>
+            <useStrictValidation>false</useStrictValidation>
+            <segmentDelimiter>\r</segmentDelimiter>
+          </deserializationProperties>
+          <batchProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2BatchProperties" version="4.7.0">
+            <splitType>MSH_Segment</splitType>
+            <batchScript></batchScript>
+          </batchProperties>
+          <responseGenerationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseGenerationProperties" version="4.7.0">
+            <segmentDelimiter>\r</segmentDelimiter>
+            <successfulACKCode>AA</successfulACKCode>
+            <successfulACKMessage></successfulACKMessage>
+            <errorACKCode>AE</errorACKCode>
+            <errorACKMessage>An Error Occurred Processing Message.</errorACKMessage>
+            <rejectedACKCode>AR</rejectedACKCode>
+            <rejectedACKMessage>Message Rejected.</rejectedACKMessage>
+            <msh15ACKAccept>false</msh15ACKAccept>
+            <dateFormat>yyyyMMddHHmmss.SSS</dateFormat>
+          </responseGenerationProperties>
+          <responseValidationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseValidationProperties" version="4.7.0">
+            <successfulACKCode>AA,CA</successfulACKCode>
+            <errorACKCode>AE,CE</errorACKCode>
+            <rejectedACKCode>AR,CR</rejectedACKCode>
+            <validateMessageControlId>true</validateMessageControlId>
+            <originalMessageControlId>Destination_Encoded</originalMessageControlId>
+            <originalIdMapVariable></originalIdMapVariable>
+          </responseValidationProperties>
+        </inboundProperties>
+        <outboundProperties class="com.mirth.connect.plugins.datatypes.json.JSONDataTypeProperties" version="4.7.0">
+          <batchProperties class="com.mirth.connect.plugins.datatypes.json.JSONBatchProperties" version="4.7.0">
+            <splitType>JavaScript</splitType>
+            <batchScript></batchScript>
+          </batchProperties>
+        </outboundProperties>
       </transformer>
-
-      <filter version="3.12.0"><elements/></filter>
+      <responseTransformer version="4.7.0">
+        <elements/>
+        <inboundDataType>JSON</inboundDataType>
+        <outboundDataType>JSON</outboundDataType>
+        <inboundProperties class="com.mirth.connect.plugins.datatypes.json.JSONDataTypeProperties" version="4.7.0">
+          <batchProperties class="com.mirth.connect.plugins.datatypes.json.JSONBatchProperties" version="4.7.0">
+            <splitType>JavaScript</splitType>
+            <batchScript></batchScript>
+          </batchProperties>
+        </inboundProperties>
+        <outboundProperties class="com.mirth.connect.plugins.datatypes.json.JSONDataTypeProperties" version="4.7.0">
+          <batchProperties class="com.mirth.connect.plugins.datatypes.json.JSONBatchProperties" version="4.7.0">
+            <splitType>JavaScript</splitType>
+            <batchScript></batchScript>
+          </batchProperties>
+        </outboundProperties>
+      </responseTransformer>
+      <filter version="4.7.0">
+        <elements/>
+      </filter>
       <transportName>HTTP Sender</transportName>
       <mode>DESTINATION</mode>
       <enabled>true</enabled>
       <waitForPrevious>true</waitForPrevious>
     </connector>
   </destinationConnectors>
-
-  <preprocessingScript>// Modify message if needed
+  <preprocessingScript>// Modify the message variable below to pre process data
 return message;</preprocessingScript>
-  <postprocessingScript>// Runs after processing
+  <postprocessingScript>// This script executes once after a message has been processed
+// Responses returned from here will be stored as &quot;Postprocessor&quot; in the response map
 return;</postprocessingScript>
-  <deployScript>// Runs on deploy
+  <deployScript>// This script executes once when the channel is deployed
+// You only have access to the globalMap and globalChannelMap here to persist data
 return;</deployScript>
-  <undeployScript>// Runs on undeploy
+  <undeployScript>// This script executes once when the channel is undeployed
+// You only have access to the globalMap and globalChannelMap here to persist data
 return;</undeployScript>
+  <properties version="4.7.0">
+    <clearGlobalChannelMap>true</clearGlobalChannelMap>
+    <messageStorageMode>DEVELOPMENT</messageStorageMode>
+    <encryptData>false</encryptData>
+    <encryptAttachments>false</encryptAttachments>
+    <encryptCustomMetaData>false</encryptCustomMetaData>
+    <removeContentOnCompletion>false</removeContentOnCompletion>
+    <removeOnlyFilteredOnCompletion>false</removeOnlyFilteredOnCompletion>
+    <removeAttachmentsOnCompletion>false</removeAttachmentsOnCompletion>
+    <initialState>STARTED</initialState>
+    <storeAttachments>false</storeAttachments>
+    <metaDataColumns>
+      <metaDataColumn>
+        <name>SOURCE</name>
+        <type>STRING</type>
+        <mappingName>mirth_source</mappingName>
+      </metaDataColumn>
+      <metaDataColumn>
+        <name>TYPE</name>
+        <type>STRING</type>
+        <mappingName>mirth_type</mappingName>
+      </metaDataColumn>
+    </metaDataColumns>
+    <attachmentProperties version="4.7.0">
+      <type>None</type>
+      <properties/>
+    </attachmentProperties>
+    <resourceIds class="linked-hash-map">
+      <entry>
+        <string>Default Resource</string>
+        <string>[Default Resource]</string>
+      </entry>
+    </resourceIds>
+  </properties>
+  <exportData>
+    <metadata>
+      <enabled>true</enabled>
+    </metadata>
+    <dependentIds/>
+    <dependencyIds/>
+    <channelTags/>
+  </exportData>
 </channel>
