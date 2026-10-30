@@ -1,128 +1,125 @@
 # SMART on FHIR Web App
 
-A browser-based SMART on FHIR application that demonstrates:
-- OAuth2 launch flow
-- FHIR R4 API queries
-- Patient data visualization
+A static browser app. It shows:
 
----
+- the SMART on FHIR launch (EHR launch and standalone launch) with fhirclient.js
+- FHIR R4 reads for the patient in context
+- a simple patient dashboard
 
-## Running the App
+It has no build step and no server code. fhirclient.js 3.0.1 loads from the
+jsDelivr CDN with a Subresource Integrity (SRI) hash, so the browser refuses
+the file if it changes.
 
-### Option 1: Python
+## Run it
 
 ```bash
 cd smart-app
 python -m http.server 8000
 ```
 
-### Option 2: Node.js
+Or: `npx http-server smart-app -p 8000 -c-1`
 
-```bash
-npx http-server smart-app -p 8000 -c-1
-```
+The app is then at http://localhost:8000
 
-The app will be available at `http://localhost:8000`
+## Use it
 
----
+### EHR launch
 
-## Using the App
+1. Open https://launch.smarthealthit.org/
+2. Launch Type: **Provider EHR Launch**. FHIR version: **R4**.
+3. App's Launch URL: `http://localhost:8000/launch.html`
+4. Click **Launch**. Pick a patient (and a provider) if the launcher asks.
 
-### With a SMART Launcher (OAuth2 Flow)
+### Standalone launch (SMART, no EHR)
 
-1. Go to https://launch.smarthealthit.org/
-2. Set **Launch URL**: `http://localhost:8000/launch.html`
-3. Click **Launch** and select a patient
-4. The dashboard will display patient data
+1. Open https://launch.smarthealthit.org/
+2. Launch Type: **Patient Standalone Launch**. Copy the **Server's FHIR Base URL**.
+3. Open `http://localhost:8000/launch.html?iss=<the URL you copied>`
+4. Pick a patient and log in on the launcher's demo pages (any password works),
+   or tick **Skip login screen** on the launcher first.
 
-### Standalone Mode (No OAuth)
+### Standalone mode (no SMART)
 
-1. Open `http://localhost:8000/index.html` directly
-2. Click **Connect** in the Standalone Mode panel
-3. Select a patient from the list
+1. Open http://localhost:8000/index.html directly.
+2. Click **Connect** (HAPI R4 by default) and pick a patient.
 
----
+This mode reads an open FHIR server without any login. It is useful when the
+SMART launcher is down.
 
-## Configuration
+## Settings
 
-### Default Settings
+`config.js` holds the defaults. To change them, copy
+`config.local.example.js` to `config.local.js` (gitignored) and edit it.
 
-The app uses public FHIR servers by default (configured in `config.js`).
+| Setting | Default | What it does |
+|---|---|---|
+| `smartClientId` | `my_web_app` | OAuth client ID sent to the authorization server |
+| `includeUserContext` | `true` | Adds `openid fhirUser` to the scopes. Set `false` if your sandbox has no user (Practitioner) records. |
+| `smartScopes` | not set | A full scope string that replaces the built scopes, for example SMART v2: `launch openid fhirUser patient/*.rs` |
+| `standaloneServerUrl` | `https://hapi.fhir.org/baseR4` | Server for standalone mode |
+| `recommendedLauncherUrl` | `https://launch.smarthealthit.org/` | Shown in the help text when `launch.html` has no `iss` |
 
-### Custom FHIR Server
+Scopes that `launch.html` builds when `smartScopes` is not set:
 
-To use your own FHIR server:
+| Launch | Scopes |
+|---|---|
+| EHR launch (`iss` and `launch` in the URL) | `launch openid fhirUser patient/*.read` |
+| Standalone launch (only `iss`) | `launch/patient openid fhirUser patient/*.read` |
 
-1. Copy `config.local.example.js` to `config.local.js`
-2. Edit with your settings:
-
-```js
-window.INFOGLEAM_CONFIG = Object.assign(window.INFOGLEAM_CONFIG || {}, {
-  standaloneServerUrl: "https://your-server.com/fhir",
-  smartClientId: "your_client_id",
-  includeUserContext: false
-});
-```
-
-`config.local.js` is gitignored - your settings stay private.
-
----
+See the main [README](../README.md) for what each scope means.
 
 ## Files
 
-| File | Description |
-|------|-------------|
-| `launch.html` | OAuth2 authorization entry point |
-| `index.html` | Main dashboard with patient data |
-| `config.js` | Default configuration (committed) |
-| `config.local.js` | Local overrides (gitignored) |
-| `config.local.example.js` | Template for local config |
+| File | What it is |
+|---|---|
+| `launch.html` | SMART launch page. Builds the scopes and calls `FHIR.oauth2.authorize()`. |
+| `index.html` | Dashboard. Calls `FHIR.oauth2.ready()` after a launch, or runs standalone mode. |
+| `config.js` | Default settings (committed) |
+| `config.local.example.js` | Template for `config.local.js` |
+| `config.local.js` | Your local settings (gitignored, optional) |
 
----
+## What the dashboard shows
 
-## FHIR Resources Displayed
+- **Patient**: name, birth date, gender, ID
+- **Encounters**: the 5 most recent
+- **Active medications**: MedicationRequest with status `active`. The name
+  comes from `medicationCodeableConcept` or `medicationReference.display`.
+- **Observations**: the 10 most recent. Panels such as blood pressure show
+  their component values (systolic, diastolic).
 
-- **Patient** - Name, DOB, gender, ID
-- **Encounter** - Recent visits with dates and types
-- **MedicationRequest** - Active medications
-- **Observation** - Recent lab results and vitals
+Each card loads on its own. If one request fails, that card turns red and
+shows the error. The other cards still load.
 
----
+All server data is written with `textContent` or new DOM elements, never with
+`innerHTML`. Text from a FHIR server cannot inject HTML or script into the page.
 
 ## Troubleshooting
 
-**"Practitioner Login / No Providers Found"**
-- Click **Continue without a user**
-- This appears when the sandbox has no Practitioner data
+**"No SMART launch found" on index.html**
+- This is normal when you open the page directly. Use standalone mode, or
+  start from a SMART launcher.
 
-**Blank page after launch**
-- Open browser DevTools (F12) and check Console for errors
-- Verify you launched from a SMART Launcher, not directly
+**"No FHIR server given" on launch.html**
+- The page was opened without `?iss=`. Start from a SMART launcher.
+
+**"SMART launch failed"**
+- The authorization did not finish, or the session expired. Launch again.
+- Open the browser DevTools (F12) and check the Console for details.
+
+**Login page or "No Providers Found" in the launcher**
+- The app asks for `openid fhirUser`, so the launcher wants a user. Pick a
+  provider, or set `includeUserContext: false` in `config.local.js`.
 
 **CORS errors**
-- The FHIR server must allow browser requests
-- Try a different public sandbox
+- The FHIR server must allow requests from a browser. Try another public
+  test server.
 
-**502 Bad Gateway from launcher**
-- The public launcher may be temporarily down
-- Use Standalone Mode instead
+**502 Bad Gateway from the launcher**
+- The public launcher may be down for a while. Use standalone mode.
 
----
+## Learn more
 
-## How SMART Launch Works
-
-1. You open the SMART Launcher in your browser
-2. You enter your app's Launch URL
-3. The Launcher redirects YOUR BROWSER to your localhost URL
-4. The redirect includes `iss` (FHIR server) and `launch` (context token)
-5. Your app uses these to complete OAuth2 authorization
-
-The launcher doesn't "call" your localhost - it's all browser redirects.
-
----
-
-## Learn More
-
-- [SMART on FHIR Documentation](https://docs.smarthealthit.org/)
-- [fhir-client.js Library](https://github.com/smart-on-fhir/client-js)
-- [FHIR R4 Patient Resource](https://hl7.org/fhir/R4/patient.html)
+- [SMART App Launch specification](https://hl7.org/fhir/smart-app-launch/)
+- [SMART on FHIR documentation](https://docs.smarthealthit.org/)
+- [fhirclient.js](https://github.com/smart-on-fhir/client-js)
+- [FHIR R4 Patient resource](https://hl7.org/fhir/R4/patient.html)

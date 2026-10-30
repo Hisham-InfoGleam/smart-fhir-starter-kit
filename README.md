@@ -1,147 +1,383 @@
-# InfoGleam SMART on FHIR Starter Kit
+# SMART on FHIR Starter Kit
 
-An **open-source educational toolkit** for learning and building healthcare interoperability solutions.
+A small, working example of a SMART on FHIR web app and an HL7 v2 to FHIR
+channel for Open Integration Engine (OIE) or Mirth Connect. It is made for
+learning and demos, with synthetic test data only.
 
-This project provides working examples of:
-- **SMART on FHIR** app development (OAuth2 launch + FHIR API)
-- **HL7 v2 integration** with Mirth Connect (ingestion, validation, transformation)
-- **Modern clinical UI** patterns for patient data visualization
+## What this shows
 
-**Free to use, modify, and learn from.** Built for the healthcare developer community.
+- A browser app that does a SMART on FHIR launch with
+  [fhirclient.js](https://github.com/smart-on-fhir/client-js). It supports an
+  EHR launch (`iss` + `launch`) and a standalone launch (`iss` only).
+- After the launch, the app reads Patient, Encounter, MedicationRequest and
+  Observation for the patient in context.
+- A standalone mode without SMART. It reads an open FHIR test server (HAPI by
+  default) and shows a patient picker.
+- An OIE / Mirth channel. It receives HL7 v2 over MLLP, checks the required
+  fields, maps ADT to a FHIR Patient and ORU to FHIR Observations, and posts
+  the FHIR JSON over HTTP.
+- A mock receiver and a small MLLP sender script, so you can test the channel
+  from end to end on one computer.
 
----
+## Quick start
 
-## What You Can Learn
+You need Python 3 or Node.js 18+ for the web app, and an internet connection
+(the app loads fhirclient.js from a CDN and talks to public test servers).
 
-| Topic | What's Included |
-|-------|-----------------|
-| **SMART on FHIR** | Complete OAuth2 launch flow, patient-context reads, FHIR queries |
-| **FHIR R4 API** | Patient, Encounter, MedicationRequest, Observation resources |
-| **HL7 v2 Processing** | Mirth Connect channel with validation + transformation logic |
-| **Clinical UX** | Dashboard layout, resource rendering, error handling |
-
----
-
-## Quick Start
-
-### 1. Serve the SMART App
+### 1. Run the SMART app
 
 ```bash
 cd smart-app
 python -m http.server 8000
 ```
 
-### 2. Launch with Any SMART Sandbox
+Or, with Node.js: `npx http-server smart-app -p 8000 -c-1`
 
-- Open: https://launch.smarthealthit.org/
-- Set **Launch URL**: `http://localhost:8000/launch.html`
-- Click **Launch**, select a patient, see the dashboard
+Open http://localhost:8000/index.html. The page says that no SMART launch was
+found. That is expected. Click **Connect** in Standalone Mode and pick a
+patient. The dashboard shows that patient's data from the HAPI test server.
 
-### 3. Or Use Standalone Mode (No OAuth)
+### 2. Try a SMART launch
 
-- Open: `http://localhost:8000/index.html`
-- Click **Connect** to browse patients from a public FHIR server
+1. Open https://launch.smarthealthit.org/
+2. Keep **Provider EHR Launch** and FHIR version **R4**.
+3. Set **App's Launch URL** to `http://localhost:8000/launch.html`
+4. Click **Launch**.
+5. If the launcher shows a patient picker or a demo login page, choose any
+   entry. The demo login page accepts any password. You can also pick a
+   patient and a provider on the launcher page first.
 
-> Full setup guide: [QUICKSTART.md](QUICKSTART.md)
+The app opens on the dashboard for the selected patient.
 
----
+### 3. Run the HL7 v2 to FHIR demo
 
-## Project Structure
+You need OIE 4.7 (download from
+[the OIE releases page](https://github.com/OpenIntegrationEngine/engine/releases))
+and Node.js 18+.
 
+1. Start the mock receiver. Leave this window open.
+
+   ```bash
+   cd mirth/mock-server
+   npm start
+   ```
+
+2. Open the OIE Administrator. Go to **Channels**, click **Import Channel** and
+   choose `mirth/channels/Infogleam_HL7_to_FHIR.xml`. Save the channel if the
+   editor opens, then deploy it.
+3. In a second window, from the repo folder, send a sample message:
+
+   ```bash
+   node mirth/send-hl7.js mirth/messages/ADT_A01.hl7
+   ```
+
+4. The sender prints the ACK. The receiver window prints the FHIR JSON.
+
+Section "HL7 v2 to FHIR with OIE / Mirth" below shows the output to expect.
+
+## How SMART launch works
+
+1. The EHR (here the SMART launcher) opens
+   `launch.html?iss=<FHIR server>&launch=<launch id>`.
+2. `launch.html` calls `FHIR.oauth2.authorize()`. fhirclient reads the
+   server's `.well-known/smart-configuration` and sends the browser to the
+   authorization server with the client ID, the scopes, the redirect URI and,
+   when the server supports it, a PKCE challenge.
+3. After the user approves, the browser comes back to
+   `index.html?code=...&state=...`.
+4. `index.html` calls `FHIR.oauth2.ready()`. fhirclient swaps the code for an
+   access token. The token response names the patient in context.
+5. The app reads FHIR data with that token.
+
+The scopes that `launch.html` asks for:
+
+| Scope | When | What it means |
+|---|---|---|
+| `launch` | EHR launch (the URL has `launch`) | Give the app the context the EHR already has, such as the open patient. |
+| `launch/patient` | Standalone launch (the URL has only `iss`) | Let the user pick a patient during authorization. |
+| `openid fhirUser` | Both | Tell the app who the user is (an ID token with a FHIR user reference). |
+| `patient/*.read` | Both | Read all resource types for the patient in context. |
+
+`launch` and `launch/patient` are not the same. In an EHR launch the context
+comes from the EHR, so the app asks for `launch`. `launch/patient` is for a
+standalone launch: there is no EHR context, so the user picks a patient.
+
+`patient/*.read` is SMART v1 syntax. SMART App Launch 2 writes the same access
+as `patient/*.rs` (`r` = read, `s` = search). Servers that support v2 may also
+accept v1. Check your server. To send v2 scopes, set `smartScopes` in
+`smart-app/config.local.js` (copy it from `config.local.example.js`). A real app
+should ask only for the resource types it needs, for example
+`patient/Observation.rs`.
+
+More settings and troubleshooting: [smart-app/README.md](smart-app/README.md).
+
+## HL7 v2 to FHIR with OIE / Mirth
+
+The channel in `mirth/channels/Infogleam_HL7_to_FHIR.xml` is a real export
+from OIE 4.7.0 (it came from the OIE REST API, `GET /api/channels/{id}`).
+
+| Part | Setting |
+|---|---|
+| Source | TCP Listener, MLLP framing, port 6661 |
+| ACK | Generated by the engine after the destination finishes: `AA` when the JSON was delivered, `AE` when a check failed or the receiver did not answer |
+| Destination transformer | One JavaScript step. It is the same code as [mirth/channel-logic.js](mirth/channel-logic.js). If you change one, change the other. |
+| Destination | HTTP Sender, `POST http://localhost:3000/fhir`, content type `application/fhir+json` |
+
+How the fields map:
+
+| HL7 v2 | FHIR R4 |
+|---|---|
+| ADT (any trigger) | One `Patient`. `id` and `identifier` from PID-3, `name` from PID-5, `birthDate` from PID-7, `gender` from PID-8. |
+| ORU | A `Bundle` (type `collection`) with one `Observation` for each OBX. `code` from OBX-3 (system `http://loinc.org` when OBX-3.3 is `LN`), `valueQuantity` from OBX-5 and OBX-6 when OBX-2 is `NM` (otherwise `valueString`), `status` from OBX-11, `effectiveDateTime` from OBX-14 or else OBR-7. |
+| Any other type (the ORM sample) | One `Basic` resource that records the message type and trigger. |
+
+MSH-10 (message control ID) and PID-3 (patient ID) are required. If one is
+missing, the script throws an error and the sender gets `AE`.
+
+### Output from the test run
+
+This is the real output from the test on 2026-10-30. The test container
+mapped the MLLP port 6661 to 36661 on the host, so the command has `--port 36661`.
+With a normal install you can leave `--port` out.
+
+```text
+$ node mirth/send-hl7.js mirth/messages/ADT_A01.hl7 --port 36661
+Sending mirth/messages/ADT_A01.hl7 to 127.0.0.1:36661
+ACK received:
+  MSH|^~\&|RECEIVING_APP|RECEIVING_FAC|SENDING_APP|SENDING_FAC|20261030090644.144||ACK|20261030090644.144|P|2.3
+  MSA|AA|MSG00001
 ```
-smart-app/                     # SMART on FHIR web application
-  launch.html                  # OAuth2 authorize entry point
-  index.html                   # Patient dashboard + standalone mode
-  config.js                    # Default configuration (public servers)
-  README.md                    # App-specific documentation
 
-mirth/                         # HL7 v2 integration examples
-  channel-logic.js             # Transformer code (reviewable JS)
-  channels/                    # Importable Mirth channel XML
-  messages/                    # Sample HL7 v2 messages (synthetic)
-  mock-server/                 # Simple HTTP receiver for testing
+The receiver printed:
 
+```text
+--- RECEIVED application/fhir+json; charset=UTF-8 ---
+{
+  "resourceType": "Patient",
+  "id": "TEST0001",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://example.org/tags",
+        "code": "demo"
+      }
+    ]
+  },
+  "identifier": [
+    {
+      "system": "http://hospital.example.org/mrn",
+      "value": "TEST0001"
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "DOE",
+      "given": [
+        "JANE"
+      ]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1980-01-01"
+}
+```
+
+<details>
+<summary>ORU_R01.hl7 output (Bundle with two Observations)</summary>
+
+```text
+--- RECEIVED application/fhir+json; charset=UTF-8 ---
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://example.org/tags",
+              "code": "demo"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "718-7",
+              "display": "HEMOGLOBIN"
+            }
+          ],
+          "text": "HEMOGLOBIN"
+        },
+        "subject": {
+          "reference": "Patient/TEST0001"
+        },
+        "effectiveDateTime": "2026-01-18T11:30:00+00:00",
+        "valueQuantity": {
+          "value": 13.2,
+          "unit": "g/dL"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://example.org/tags",
+              "code": "demo"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "6690-2",
+              "display": "WBC"
+            }
+          ],
+          "text": "WBC"
+        },
+        "subject": {
+          "reference": "Patient/TEST0001"
+        },
+        "effectiveDateTime": "2026-01-18T11:30:00+00:00",
+        "valueQuantity": {
+          "value": 7.1,
+          "unit": "10*3/uL"
+        }
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+A message without PID-3 got this ACK, and nothing was posted:
+
+```text
+  MSA|AE|MSG00099|An Error Occurred Processing Message.
+```
+
+The engine's message log showed the reason:
+`VALIDATION ERROR: Missing PID-3 (patient ID / MRN)`.
+
+### If OIE runs in Docker
+
+- Publish the ports on localhost only, for example
+  `-p 127.0.0.1:8443:8443 -p 127.0.0.1:6661:6661`.
+- Inside a container, `localhost` is the container itself. Change the HTTP
+  Sender URL to `http://host.docker.internal:3000/fhir`. This was tested with
+  Docker Desktop on Windows: the container reached the receiver on 127.0.0.1.
+  On Linux, add
+  `--add-host=host.docker.internal:host-gateway` to `docker run` and start the
+  receiver with `HOST=0.0.0.0` (the Linux path is not tested).
+
+### Build the channel by hand
+
+Use this if your engine does not accept the export file (for example an older
+Mirth version).
+
+1. New channel. Source: **TCP Listener**, port `6661`, transmission mode MLLP.
+2. Source **Response**: `Auto-generate (Destinations completed)`.
+3. Destination: **HTTP Sender**, URL `http://localhost:3000/fhir`, method POST,
+   content type `application/fhir+json`, content `${message.encodedData}`.
+4. Destination transformer: set the outbound data type to JSON, add a
+   JavaScript step, and paste [mirth/channel-logic.js](mirth/channel-logic.js).
+
+### About Mirth Connect and OIE
+
+Mirth Connect 4.6 and later are commercial products from NextGen Healthcare.
+Mirth Connect 4.5.2 was the last open-source release.
+[Open Integration Engine](https://openintegrationengine.org) (OIE) is the
+open-source continuation of the Mirth code base, under the MPL-2.0 license.
+This channel was tested on OIE 4.7.0 only.
+
+## Project layout
+
+```text
+smart-app/
+  launch.html               SMART launch page (calls FHIR.oauth2.authorize)
+  index.html                Dashboard and standalone mode (calls FHIR.oauth2.ready)
+  config.js                 Default settings (committed)
+  config.local.example.js   Template for your own settings (copy to config.local.js, gitignored)
+  README.md                 App settings and troubleshooting
+mirth/
+  channel-logic.js          The transformer script (same code as in the channel)
+  channels/
+    Infogleam_HL7_to_FHIR.xml   Channel exported from OIE 4.7.0
+  messages/                 Synthetic HL7 v2 samples: ADT_A01, ORU_R01, ORM_O01
+  mock-server/              Mock HTTP receiver (Node.js, no dependencies)
+  send-hl7.js               Sends an HL7 file over MLLP and prints the ACK
 docs/
-  ARCHITECTURE.md              # System design overview
-
-QUICKSTART.md                  # Step-by-step setup instructions
+  ARCHITECTURE.md           How the parts fit together
+package.json                npm scripts for the steps above
+LICENSE
 ```
 
----
+## Test data
 
-## Use Your Own FHIR Server
+All data in this repo is synthetic:
 
-This toolkit works with any FHIR R4 server. To use your own:
+- Patient `DOE^JANE`, MRN `TEST0001`, born 1980-01-01
+- Doctor `DOC0001 DOE^JOHN`
+- Systems `SENDING_APP` / `SENDING_FAC` and `RECEIVING_APP` / `RECEIVING_FAC`
+- Code systems and URLs on `example.org`
 
-1. Copy `smart-app/config.local.example.js` to `smart-app/config.local.js`
-2. Set your FHIR server URL and client ID
-3. `config.local.js` is gitignored - your endpoints stay private
+The public FHIR servers that the app uses (HAPI, SMART Health IT) are open test
+servers. Never send real patient data to them.
 
-```js
-// smart-app/config.local.js (example)
-window.INFOGLEAM_CONFIG = Object.assign(window.INFOGLEAM_CONFIG || {}, {
-  standaloneServerUrl: "https://your-fhir-server.com/fhir",
-  smartClientId: "your_client_id"
-});
-```
+## Status and limits
 
----
+This is demo code for learning. It is not ready for production use.
 
-## Architecture
+Tested on 2026-10-30:
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system diagram.
+- The channel file was imported into OIE 4.7.0 (in Docker, through the REST
+  API) and deployed. The three sample messages were sent over MLLP. The results
+  are shown above. A message without PID-3 and a stopped receiver both gave `AE`.
+- The SMART app in a browser: an EHR launch and a standalone launch with
+  https://launch.smarthealthit.org/ (R4), standalone mode with
+  https://hapi.fhir.org/baseR4, and opening the pages without launch
+  parameters.
 
-```
-SMART App Launcher  -->  SMART Web App  -->  FHIR Server
-                              |
-                              +-- Patient / Encounter / Meds / Obs
+Not tested:
 
-HL7 Source  -->  Mirth Connect  -->  HTTP Receiver
-                 (transform)         (verify output)
-```
+- Mirth Connect, BridgeLink, and OIE versions other than 4.7.0
+- Importing the channel through the Administrator window (the REST API import
+  was tested)
+- Sending the FHIR JSON to a real FHIR server. The mock receiver only prints it.
 
----
+Known limits:
 
-## Privacy and Safety
+- The mapping is simple. It reads the first PID-3 repetition and the first OBR
+  only. `Patient.id` is the MRN. Nothing is validated against FHIR profiles.
+- FHIR needs a time zone when a time is given. HL7 times without a zone keep
+  only the date.
+- The MLLP listener has no TLS and listens on all addresses of the engine
+  (`0.0.0.0:6661`). Use it on your own computer only, or publish the port on
+  127.0.0.1 as shown above.
+- The mock receiver has no login. It listens on 127.0.0.1 by default.
+- The SMART app is a public client (no client secret). fhirclient keeps the
+  token in the browser's sessionStorage.
 
-- All included HL7 samples are **synthetic** (no real patient data)
-- Private server URLs belong in `config.local.js` (gitignored)
-- Safe to fork, modify, and share
-
----
-
-## Learn More
-
-- [SMART on FHIR Documentation](https://docs.smarthealthit.org/)
-- [HL7 FHIR R4 Specification](https://hl7.org/fhir/R4/)
-- [Mirth Connect User Guide](https://www.nextgen.com/products-and-services/integration-engine)
-- [fhir-client.js Library](https://github.com/smart-on-fhir/client-js)
-
----
-
-## Contributing
-
-Contributions are welcome! Feel free to:
-- Report issues or suggest improvements
-- Add new FHIR resource examples
-- Improve documentation
-- Share your learning experiences
-
----
-## 👨‍💻 Author
-
-**InfoGleam Systems**  
-*Hisham Alrashdan*
-For questions or consulting inquiries, contact: hisham@infogleam.com
-
-www.infoGleam.com
-
----
 ## License
 
-This project is provided as an **educational resource** for the healthcare developer community.
+MIT. See [LICENSE](LICENSE).
 
-Use it freely to learn, build, and improve healthcare interoperability.
+## Author
 
----
-**Built with love for the healthcare community by [InfoGleam](https://infogleam.com)**
+Hisham Alrashdan, InfoGleam
+
+- Website: https://infogleam.com
+- Email: hisham@infogleam.com
+- GitHub: https://github.com/Hisham-InfoGleam
