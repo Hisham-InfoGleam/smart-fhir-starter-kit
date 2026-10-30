@@ -13,13 +13,13 @@
     // Example: if your sandbox requires a different client id
     // smartClientId: "replace_me",
 
-    // Example: enable user context only if your dataset supports it
-    // includeUserContext: true,
+    // Example: turn off openid + fhirUser if your sandbox has no user records
+    // includeUserContext: false,
 
-    // Optional: completely override SMART scopes
-    // smartScopes: "launch/patient patient/*.read openid fhirUser"
+    // Optional: completely override SMART scopes (SMART v2 syntax shown)
+    // smartScopes: "launch openid fhirUser patient/*.rs"
 
-    // Optional: only used for documentation/help text
+    // Optional: only used for the launch.html help text
     // recommendedLauncherUrl: "https://your-launcher.example.com/"
   });
 })();
